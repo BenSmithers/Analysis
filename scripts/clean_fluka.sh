@@ -4,7 +4,7 @@ if [ -z "$1" ]
 then
     export where=$PWD
 else
-    export where="$PWD/$1"
+    export where=$1
 fi
 
 rm $where/ran*
