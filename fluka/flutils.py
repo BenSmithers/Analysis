@@ -1,6 +1,13 @@
-import os
-import sys
+import os # check for file existence 
 
+"""
+Ben Smithers
+benjamin.smithesr@mavs.uta.edu
+
+A few tools I wrote to work with FLUKA datafiles 
+"""
+
+# Used to skip over the headers
 line_width = 10
 
 def parse_line( what ):
@@ -53,6 +60,11 @@ def load_datafile( which ):
     return(data_array)
 
 def list_shape( source, as_str=True ):
+    """
+    A bit like an analog to the numpy shape method but for regular python lists. 
+
+    Accepts a *2D* list, `source`, and returns either a string "(MxN)" or a length-2 list representing its length
+    """
     if not isinstance(source, list):
         raise TypeError("Expected {}, got {}".format(list, type(source)))
     if not isinstance(source[0], list):
@@ -67,6 +79,9 @@ def list_shape( source, as_str=True ):
 def reshape( source, new_shape):
     """
     Reshapes a FLUKA 1D datastream, which was reshaped into a 2D one, into the desired format
+
+    source - the 2D formatted fluka table from the formatted output file
+    new_shape  - a length 2 list representing the desired shape 
     """
     if not isinstance(new_shape, list):
         raise TypeError("Shape should be a {}, got {}".format(list, type(new_shape)))
@@ -101,11 +116,9 @@ def reshape( source, new_shape):
             ref_row +=1
 
         column+=1
-        if column==line_width:
+        if column==len(source[row]): # line_width:
             column = 0
             row+=1
 
     return( reform )
-
-#reform = reshape( data_array, [ maxn_z - minn_z +1, maxz ] )
 
