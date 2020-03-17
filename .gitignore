@@ -130,3 +130,7 @@ dmypy.json
 
 # pictures
 .png
+
+#uuhgg
+*.o
+*.hdf5
