@@ -22,6 +22,8 @@ print("Running Matplotlib version: "+matplotlib.__version__)
 import matplotlib.pyplot as plt
 import warnings
 
+plt.style.use('/home/benito/Desktop/testing/paper.mplstyle')
+
 # this is required for running as a condor job
 os.environ['HDF5_USE_FILE_LOCKING'] ='FALSE'
 
@@ -29,7 +31,7 @@ pi = np.pi
 
 parser = OptionParser()
 parser.add_option("-i", "--ops", 
-                  dest="ops_folder", 
+                  dest="ops_file", 
                   default="", 
                   type="str",
                   help="Folder of files to be processed")
@@ -101,7 +103,7 @@ options, args = parser.parse_args()
 sep_flavor    = options.sep_flavor
 sep_current   = options.sep_current
 sep_matter    = options.sep_matter
-ops_folder    = options.ops_folder
+ops_file    = options.ops_file
 color         = options.color
 bjorken_x     = options.do_bjorken_x
 bjorken_y     = options.do_bjorken_y
@@ -114,17 +116,11 @@ bjyve         = options.BjYvE
 
 vscale = [10**2, 10**7.5]
 
-try:
-    os.mkdir( ops_folder + "output" )
-except FileExistsError: 
-    pass
-
-
 print("Loading in the hdf5 files!")
 import h5py
 
 # open hdf5 file
-op_file = h5py.File(ops_folder + "LepI_processed.hdf5",'r')
+op_file = h5py.File(ops_file,'r')
 LepI_input = {}
 # transcribe the contents into a dictionary. 
 #   later on, we will access the contents of the keys and cast them as lists
@@ -132,6 +128,8 @@ for key in op_file:
     # sending the hdf5 list-like object to a ndarray and then to a list is WAY WAY WAY faster than directly casting it as a list
     LepI_input[key] = np.array(op_file[key]).tolist()
 op_file.close()
+
+ops_folder = "/".join(ops_file.split("/")[:-1])
 
 # close file, open new file
 
@@ -180,7 +178,6 @@ class color_obj:
 
         colorVal = self.cmap( which_color/self.n_colors )
         assert( colorVal is not None )
-        print(colorVal)
         return( colorVal )
 
 class title_obj:
@@ -211,8 +208,12 @@ class title_obj:
         if self.sep_mat:
             if title!="":
                 title+=", "
-                
-            title += matters[self.matter] 
+            
+            if self.matter == 1:
+                title += "anti-matter"
+            else:
+                title += matters[self.matter] 
+
 
         if self.sep_cur:
             if title!="":
@@ -863,6 +864,7 @@ if energyQ:
     plt.ylim([vscale[0], vscale[1]])
     plt.ylabel(r"$E^{2}dN/dE$ [GeV]",size=14)
     plt.legend()
+    plt.tight_layout()
     plt.xlabel("Primary Lepton Energy [GeV]", size=14)
     plt.savefig( ops_folder+"/output/"+ "primaryE.png", dpi=400)
     plt.clf()
