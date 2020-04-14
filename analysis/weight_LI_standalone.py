@@ -26,7 +26,9 @@ import LeptonWeighter as LW
 
 
 out_folder = "./"
-input_files = ["./data_output_0a.h5"]
+input_files = ["/home/bsmithers/processing/LI_standalone_test/data_output_0a.h5"]
+inp = "/home/bsmithers/processing/LI_standalone_test/data_output_0a.h5"
+lic_files = ["/home/bsmithers/processing/LI_standalone_test/config_0a.lic"]
 
 name = "LepI"
 
@@ -43,8 +45,8 @@ overwrite = False
 pi = np.pi
 proton_mass = 0.93827231 #GeV
 
-Flux = '/home/bsmithers/software_dev/Analysis/nusquids_stuff/'
-#Flux = '/home/carguelles/vault/golem_fit_installation_test/sources/GolemFit/resources/Fluxes/conventional/'# conventional_atmospheric.hdf5'
+#Flux = '/home/bsmithers/software_dev/Analysis/nusquids_stuff/'
+Flux = '/home/carguelles/vault/golem_fit_installation_test/sources/GolemFit/resources/Fluxes/conventional/'# conventional_atmospheric.hdf5'
 #Flux = '/data/ana/SterileNeutrino/IC86/HighEnergy/Analysis/Fluxes/Flux_AIRS_sib_HG_th24_dm2/prompt_atmospheric_0_0.000000_0.000000_0.000000_0.000000_0.000000_0.000000.hdf5'
 #Flux = '/data/ana/SterileNeutrino/IC86/HighEnergy/Analysis/scripts/jobs/Resources/FluxOscCalculator_US/atmospheric_0_0.000000_0.000000_0.000000_0.000000_0.000000_0.000000.hdf5'
 #Flux = '/data/ana/SterileNeutrino/IC86/HighEnergy/Analysis/scripts/jobs/Resources/GolemFit/resources/FluxOscCalculator/atmospheric_0_0.000000_0.000000_0.000000_0.000000_0.000000_0.000000.hdf5'
@@ -122,7 +124,7 @@ for flavor in all_flavors:
 flux_params={ 'constant': 10**-18, 'index':-2, 'scale':10**5 }
 liveTime   =3.1536e7
 
-lic_files = ["config_0a.lic"]
+
 net_generation = []
 for lic in lic_files:
     net_generation += LW.MakeGeneratorsFromLICFile(lic) 
@@ -136,13 +138,13 @@ xs = LW.CrossSectionFromSpline(
 use_atm = True
 if use_atm:
     # commenting these out while I make a BSM flux 
-    #pi_nusquids_flux = LW.nuSQUIDSAtmFlux(Flux+'/pion_atmospheric.hdf5')
-    #k_nusquids_flux = LW.nuSQUIDSAtmFlux(Flux +'/kaon_atmospheric.hdf5')
-    #weight_pi = LW.Weighter( pi_nusquids_flux, xs, net_generation )
-    #weight_k = LW.Weighter( k_nusquids_flux, xs, net_generation )
+    pi_nusquids_flux = LW.nuSQUIDSAtmFlux(Flux+'/pion_atmospheric.hdf5')
+    k_nusquids_flux = LW.nuSQUIDSAtmFlux(Flux +'/kaon_atmospheric.hdf5')
+    weight_pi = LW.Weighter( pi_nusquids_flux, xs, net_generation )
+    weight_k = LW.Weighter( k_nusquids_flux, xs, net_generation )
     
-    the_flux = LW.nuSQUIDSAtmFlux( Flux + "fluxes_flavor.hdf5" )
-    weight_it = LW.Weighter( the_flux, xs, net_generation )
+    #the_flux = LW.nuSQUIDSAtmFlux( Flux + "fluxes_flavor.hdf5" )
+    #weight_it = LW.Weighter( the_flux, xs, net_generation )
 
 else:
     flux = LW.PowerLawFlux( flux_params['constant'] , flux_params['index'] , flux_params['scale'] )
@@ -151,7 +153,7 @@ else:
 
 import h5py as h5
 
-inp = "./data_output_0a.h5"
+
 
 data_file = h5.File( inp, 'r')
 which = list(data_file.keys())
@@ -184,8 +186,8 @@ def get_weight( props ):
     global called_once 
     if use_atm:
         try:
-            one_weight = weight_it( LWevent )
-#            one_weight = (weight_pi(LWevent) + weight_k(LWevent))*0.5
+            #one_weight = weight_it( LWevent )
+            one_weight = (weight_pi(LWevent) + weight_k(LWevent))*0.5
             if not called_once:
                 called_once = True
                 print("Called at least once!")
