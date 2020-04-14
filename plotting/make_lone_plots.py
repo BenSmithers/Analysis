@@ -22,14 +22,19 @@ print("Running Matplotlib version: "+matplotlib.__version__)
 import matplotlib.pyplot as plt
 import warnings
 
+plt.style.use('/home/benito/Desktop/testing/paper.mplstyle')
+
 # this is required for running as a condor job
 os.environ['HDF5_USE_FILE_LOCKING'] ='FALSE'
+
+# disable weighting 
+no_weight = False
 
 pi = np.pi
 
 parser = OptionParser()
 parser.add_option("-i", "--ops", 
-                  dest="ops_folder", 
+                  dest="ops_file", 
                   default="", 
                   type="str",
                   help="Folder of files to be processed")
@@ -101,7 +106,7 @@ options, args = parser.parse_args()
 sep_flavor    = options.sep_flavor
 sep_current   = options.sep_current
 sep_matter    = options.sep_matter
-ops_folder    = options.ops_folder
+ops_file    = options.ops_file
 color         = options.color
 bjorken_x     = options.do_bjorken_x
 bjorken_y     = options.do_bjorken_y
@@ -112,19 +117,16 @@ secondary_e   = options.secondary_e
 hadrons_def   = options.hadrons_def
 bjyve         = options.BjYvE
 
-vscale = [10**2, 10**7.5]
-
-try:
-    os.mkdir( ops_folder + "output" )
-except FileExistsError: 
-    pass
-
+if no_weight:
+    vscale = [10**-9, 10**0]
+else:
+    vscale = [10**0, 10**9]
 
 print("Loading in the hdf5 files!")
 import h5py
 
 # open hdf5 file
-op_file = h5py.File(ops_folder + "LepI_processed.hdf5",'r')
+op_file = h5py.File(ops_file,'r')
 LepI_input = {}
 # transcribe the contents into a dictionary. 
 #   later on, we will access the contents of the keys and cast them as lists
@@ -132,6 +134,8 @@ for key in op_file:
     # sending the hdf5 list-like object to a ndarray and then to a list is WAY WAY WAY faster than directly casting it as a list
     LepI_input[key] = np.array(op_file[key]).tolist()
 op_file.close()
+
+ops_folder = "/".join(ops_file.split("/")[:-1])
 
 # close file, open new file
 
@@ -180,7 +184,6 @@ class color_obj:
 
         colorVal = self.cmap( which_color/self.n_colors )
         assert( colorVal is not None )
-        print(colorVal)
         return( colorVal )
 
 class title_obj:
@@ -211,8 +214,12 @@ class title_obj:
         if self.sep_mat:
             if title!="":
                 title+=", "
-                
-            title += matters[self.matter] 
+            
+            if self.matter == 1:
+                title += "anti-matter"
+            else:
+                title += matters[self.matter] 
+
 
         if self.sep_cur:
             if title!="":
@@ -295,6 +302,7 @@ except KeyError:
     warnings.warn("Weight key not found, treating all as weight=1")
     use_weights = False
 
+use_weights = use_weights and ( not no_weight )
 
 plt.clf()
 
@@ -800,10 +808,11 @@ if bjyve:
     plt.xlim([bins.min(),bins.max()])
     plt.ylim([0,0.6])
     plt.xlabel(r'$E_{\nu}$ [GeV]', size=16)
-    plt.ylabel('<y>', size=16)            
+    plt.ylabel(r'$\left< y \right>$', size=16)            
     plt.legend()
-    plt.grid(which='major', alpha=0.6)
-    plt.grid(which='minor', alpha=0.3)
+#    plt.grid(which='major', alpha=0.6)
+#    plt.grid(which='minor', alpha=0.3)
+    plt.tight_layout()
     plt.savefig( ops_folder+"/output/super_bjve.png", dpi=400 )
     plt.clf()
         #figs.clf()
@@ -861,15 +870,16 @@ if energyQ:
     plt.xscale('log')
     plt.xlim([bins.min(),bins.max()])
     plt.ylim([vscale[0], vscale[1]])
-    plt.ylabel(r"$E^{2}dN/dE$ [GeV]",size=14)
+    plt.ylabel(r"$E^{2}dN/dE$ [GeV yr$^{-1}$]",size=14)
     plt.legend()
+    plt.tight_layout()
     plt.xlabel("Primary Lepton Energy [GeV]", size=14)
     plt.savefig( ops_folder+"/output/"+ "primaryE.png", dpi=400)
     plt.clf()
 else:
     print("Skipping primary energy")
 
-if True:
+if False:
     print("")
     print("")
     print("====> Starting process for Bjorken XvY Plots") 
