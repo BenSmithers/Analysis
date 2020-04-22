@@ -1,3 +1,4 @@
+#!/usr/bin/python3.6
 '''
 This script plots the fluxes output by the convolve cpp script
 '''
@@ -12,6 +13,9 @@ data = np.loadtxt(os.path.join( os.path.dirname(__file__), 'atmosphere.txt'), dt
 n_energies = 700
 n_angles = 100
 assert( len(data) == (n_energies*n_angles))
+
+# this funnny indexing is a result of the way I output the data from nuSQuIDS
+# it loops through energies for each angle
 energies = [data[i][0] for i in range(n_energies)]
 angles = [data[n_energies*i][1] for i in range(n_angles)]
 
@@ -32,12 +36,13 @@ def get_color(which):
     return( cmap( which/n_colors ) )
 
 scale_e = 10**np.array(energies)
-plt.plot( scale_e, nuE_flux, color=get_color(0))
-plt.plot( scale_e, nuMu_flux, color=get_color(1))
-plt.plot( scale_e, nuTau_flux, color=get_color(2))
-plt.plot( scale_e, nuEBar_flux, color=get_color(3))
-plt.plot( scale_e, nuMuBar_flux, color=get_color(4))
-plt.plot( scale_e, nuTauBar_flux, color=get_color(5))
+plt.plot( scale_e, nuE_flux, color=get_color(0), label='nuE')
+plt.plot( scale_e, nuMu_flux, color=get_color(1), label='nuMu')
+plt.plot( scale_e, nuTau_flux, color=get_color(2), label='nuTau')
+plt.plot( scale_e, nuEBar_flux, color=get_color(3), label='nuEBar')
+plt.plot( scale_e, nuMuBar_flux, color=get_color(4), label='nuMuBar')
+plt.plot( scale_e, nuTauBar_flux, color=get_color(5), label='nuTauBar')
+plt.legend()
 plt.xscale('log')
 plt.yscale('log')
 plt.show()
