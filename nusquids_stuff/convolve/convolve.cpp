@@ -57,17 +57,7 @@ int main(){
     nuSQUIDSAtm<> nus_atm( zeniths, energies, n_nu, both, use_earth_interactions); 
     std::cout << "Done building nuSQUids object" << std::endl; 
     
-    // some mixing angles
-    // I don't quite understand why these have to be set manually 
-    nus_atm.Set_MixingAngle(0,1,0.563942);
-    nus_atm.Set_MixingAngle(0,2,0.154085);
-    nus_atm.Set_MixingAngle(1,2,0.785398);
-    nus_atm.Set_SquareMassDifference(1,7.65e-05);
-    nus_atm.Set_SquareMassDifference(2,0.00247);
-
-    
-    nus_atm.Set_CPPhase(0, 2, 0);
-    nus_atm.Set_CPPhase(1,2,-1.89); // sticking in the SK result
+    //nus_atm.Set_CPPhase(1,2,-1.89); // sticking in the SK result
 
     // settting some zenith angle stuff 
     nus_atm.Set_rel_error(1.0e-6);
@@ -110,13 +100,29 @@ int main(){
             // write out the angle and the energy 
             file << energy << " " << angle;
             double reg_energy = pow(10., energy);
+            double scale = 1.;
+
             // write the neutrino contributions to the flux
             for( int flavor=0; flavor<n_nu; flavor++){
-                file << " " << nus_atm.EvalFlavor( flavor, angle, reg_energy, 0);
+                if (flavor==1){
+                    scale=2.;
+                }else if(flavor==0){
+                    scale=1.;
+                }else{
+                    scale=0.;
+                }
+                file << " " << scale*nus_atm.EvalFlavor( flavor, angle, reg_energy, 0);
             }
             // and now do it for anti-neutrinos 
             for( int flavor=0; flavor<n_nu; flavor++){
-                file << " " << nus_atm.EvalFlavor( flavor, angle, reg_energy, 1);
+                if (flavor==1){
+                    scale=2.;
+                }else if(flavor==0){
+                    scale=1.;
+                }else{
+                    scale=0.;
+                }
+                file << " " << scale*nus_atm.EvalFlavor( flavor, angle, reg_energy, 1);
             }
             file << std::endl;
         }

@@ -1,7 +1,7 @@
 """
 This script will calcualte the DIS cross sections for neutrinos and convolve that with an expected flux in the ice 
 """
-
+import sys
 import nuSQUIDSpy as nsq
 import numpy as np # useful for energy ranges
 import matplotlib
@@ -59,6 +59,10 @@ def get_diff_flux( energy, flavor, neutrino, current, e_out=None, x=None):
 def get_total_flux( energy, flavor, neutrino, current):
     return(get_diff_flux(energy, flavor, neutrino, current))
 
+
+# I don't want to totally remove this code, but I don't want it called as I import some of the funcitons above
+# so I'm just commenting this all out for now. 
+'''
 total_xss = {}
 for current in currents:
     for nt in neut_types:
@@ -80,7 +84,6 @@ for current in currents:
                     muon_cascades += 0.5*total_xss[current+'_'+nt+'_'+flavor]
 
 
-print("plotting")
 
 plt.plot(energies, muon_cascades,label="muon cascades")
 plt.plot(energies, muon_tracks,label='muon tracks')
@@ -108,3 +111,5 @@ plt.title("Differential Cross Section from {:.2f} TeV Muon".format(recon_energy/
 plt.xlabel("Muon Neutrino Energy [GeV]")
 plt.ylabel("Diffy Xs")
 plt.savefig('test2.png',dpi=400)
+
+'''
