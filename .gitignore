@@ -134,3 +134,4 @@ dmypy.json
 #uuhgg
 *.o
 *.hdf5
+*.dat
