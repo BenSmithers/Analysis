@@ -129,9 +129,10 @@ dmypy.json
 .pyre/
 
 # pictures
-.png
+*.png
 
 #uuhgg
 *.o
 *.hdf5
 *.dat
+*.swp
