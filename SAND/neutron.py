@@ -2,6 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from math import sqrt
 
+"""
+Works to get an order-of-magnitude approximation for the number of neutrinos-on-target as a result of neutron absorption of Oxygen in water around nuclear reactor
+"""
+
 def sci( number ):
     order = int(np.log10(number))
     return("{:.4f}e{}".format( number/(10**order),order))
