@@ -25,7 +25,7 @@ print("Iron attenuation, 1 meter: {}".format(1.-np.exp(-1./ncl_iron)))
 baseline = 10. # meters
 
 flux_total = 1.e17 
-flux_diff  = flux_total/(8.*4*np.pi*np.pi)
+flux_diff  = flux_total/(8.*4*np.pi)
 
 unshielded = 2*np.pi/3.
 partial_flux = unshielded*flux_diff 
