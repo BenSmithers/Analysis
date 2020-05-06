@@ -18,7 +18,7 @@ using namespace nusquids;
 // this makes us consistent with the units we use
 squids::Const un; 
 
-const int angular_bins = 2;
+const int angular_bins = 50;
 const int energy_bins = 121;
 const double pi = 3.14159265359;
 
@@ -170,6 +170,7 @@ int main(){
     
     auto zeniths = linspace(cos_zenith_min, cos_zenith_max, angular_bins);
     auto energies = logspace(Emin, Emax, energy_bins);
+    std::cout << "start at: "<<energies[0] << std::endl;
 
     std::cout << "Building NuSquids object" << std::endl;
     nuSQUIDSAtm<> nus_atm( zeniths, energies, n_nu, both, use_earth_interactions); 
@@ -201,7 +202,7 @@ int main(){
         for (int energy_bin=0; energy_bin < energy_bins; energy_bin++){
             for (int neut_type =0; neut_type<2; neut_type++){
                 for (int flavor=0; flavor < n_nu; flavor++){
-                    inistate[angle_bin][energy_bin][neut_type][flavor] = 0.5*FluxMachine.get_flux( (1.e-9)*(pow(10,energies[energy_bin])), flavor);
+                    inistate[angle_bin][energy_bin][neut_type][flavor] = 0.5*FluxMachine.get_flux( (1.e-9)*(energies[energy_bin]), flavor);
                 }
             }
         }

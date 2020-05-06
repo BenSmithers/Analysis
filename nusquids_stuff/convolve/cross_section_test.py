@@ -62,54 +62,55 @@ def get_total_flux( energy, flavor, neutrino, current):
 
 # I don't want to totally remove this code, but I don't want it called as I import some of the funcitons above
 # so I'm just commenting this all out for now. 
-'''
-total_xss = {}
-for current in currents:
-    for nt in neut_types:
-        for flavor in flavors:
-            cross = np.array([ get_total_flux( en, flavors[flavor], neut_types[nt], currents[current]) for en in energies])
-            total_xss[current+'_'+nt+'_'+flavor] = cross 
+skip_plots = False
+if not skip_plots:
+    total_xss = {}
+    for current in currents:
+        for nt in neut_types:
+            for flavor in flavors:
+                cross = np.array([ get_total_flux( en, flavors[flavor], neut_types[nt], currents[current]) for en in energies])
+                total_xss[current+'_'+nt+'_'+flavor] = cross 
 
 
-muon_tracks = np.array([0. for i in energies])
-muon_cascades = np.array([0. for i in energies])
-for current in currents:
-    for nt in neut_types:
-        for flavor in flavors:
-            if current=='CC':
-                if flavor=='muon':
-                    muon_tracks += 0.5*total_xss[current+'_'+nt+'_'+flavor]
-            else:
-                if flavor=='muon':
-                    muon_cascades += 0.5*total_xss[current+'_'+nt+'_'+flavor]
+    muon_tracks = np.array([0. for i in energies])
+    muon_cascades = np.array([0. for i in energies])
+    for current in currents:
+        for nt in neut_types:
+            for flavor in flavors:
+                if current=='CC':
+                    if flavor=='muon':
+                        muon_tracks += 0.5*total_xss[current+'_'+nt+'_'+flavor]
+                else:
+                    if flavor=='muon':
+                        muon_cascades += 0.5*total_xss[current+'_'+nt+'_'+flavor]
 
 
 
-plt.plot(energies, muon_cascades,label="muon cascades")
-plt.plot(energies, muon_tracks,label='muon tracks')
+    plt.plot(energies, muon_cascades,label="muon cascades")
+    plt.plot(energies, muon_tracks,label='muon tracks')
 
-plt.yscale('log')
-plt.xscale('log')
-plt.xlabel('Neurino Energy [eV]',size=16)
-plt.ylabel(r'Total Cross Section [cm$^{2}$]',size=16)
-plt.legend()
-plt.savefig('test.png',dpi=400)
-plt.clf()
+    plt.yscale('log')
+    plt.xscale('log')
+    plt.xlabel('Neurino Energy [eV]',size=16)
+    plt.ylabel(r'Total Cross Section [cm$^{2}$]',size=16)
+    plt.legend()
+    plt.savefig('test.png',dpi=400)
+    plt.clf()
 
-# Let's try fixing the reconstructed energy 
-# and seeing how the differential cross section looks! 
-recon_energy = 100*constants.TeV
-by_min = -5
-by_max = 0
-in_energies = np.array([recon_energy/(1.-y) for y in (1-np.logspace(by_min, by_max, nBins))])
-diff_xs = [ get_diff_flux(energy, flavors['muon'],neut_types['neutrino'],currents['NC'],recon_energy,0.) for energy in in_energies ]
+    # Let's try fixing the reconstructed energy 
+    # and seeing how the differential cross section looks! 
+    recon_energy = 100*constants.TeV
+    by_min = -5
+    by_max = 0
+    in_energies = np.array([recon_energy/(1.-y) for y in (1-np.logspace(by_min, by_max, nBins))])
+    diff_xs = [get_diff_flux(energy, flavors['muon'],neut_types['neutrino'],currents['NC'],recon_energy,0.) for energy in in_energies ]
 
-plt.plot(in_energies/constants.GeV, diff_xs)
-plt.xscale('log')
-plt.yscale('log')
-plt.title("Differential Cross Section from {:.2f} TeV Muon".format(recon_energy/constants.TeV))
-plt.xlabel("Muon Neutrino Energy [GeV]")
-plt.ylabel("Diffy Xs")
-plt.savefig('test2.png',dpi=400)
+    plt.plot(in_energies/constants.GeV, diff_xs)
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.title("Differential Cross Section from {:.2f} TeV Muon".format(recon_energy/constants.TeV))
+    plt.xlabel("Muon Neutrino Energy [GeV]")
+    plt.ylabel(r"differential xs [cm$^{2}$GeV$^{-1}$]")
+    plt.savefig('test2.png',dpi=400)
 
-'''
+

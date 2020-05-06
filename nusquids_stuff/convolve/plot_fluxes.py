@@ -113,6 +113,12 @@ for i in range(n_energies):
     else:
         en_width[i] = (10**energies[i] - 10**energies[i-1])/const.GeV
 angles = [data[n_energies*i][1] for i in range(n_angles)]
+an_width = [0. for i in range(n_angles)]
+for i in range(n_angles):
+    if i ==0:
+        an_width[0] = abs( np.arccos(angles[1]) - np.arccos(angles[0]))
+    else:
+        an_width[i] = abs( np.arccos(angles[i]) - np.arccos(angles[i-1]))
 
 # let's fill out some flux functions
 # in the data file, these data are written in a big list. But that's not a very handy format
@@ -130,7 +136,7 @@ for flav in flavors:
             scale_with = 1.
 #            scale_with = get_diff_flux((10**energies[energy]), get_flavor(key), get_neut(key), get_curr(key))
 
-            fluxes[ key ] = [sum([ data[energy+angle*n_energies][get_index(key)] for angle in range(n_angles)])*scale_with*(en_width[energy])*4*np.pi for energy in range(n_energies)]
+            fluxes[ key ] = [sum([ data[energy+angle*n_energies][get_index(key)]*an_width[angle] for angle in range(n_angles)])*scale_with*(en_width[energy])*2*np.pi for energy in range(n_energies)]
             
             if curr=='NC' and flav=='Mu':
                 muon_ones += np.array(fluxes[key])
