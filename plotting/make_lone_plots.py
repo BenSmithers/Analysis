@@ -22,6 +22,7 @@ print("Running Matplotlib version: "+matplotlib.__version__)
 import matplotlib.pyplot as plt
 import warnings
 
+import json # loads the IceCube Data file 
 plt.style.use('/home/benito/Desktop/testing/paper.mplstyle')
 
 # this is required for running as a condor job
@@ -118,9 +119,9 @@ hadrons_def   = options.hadrons_def
 bjyve         = options.BjYvE
 
 if no_weight:
-    vscale = [10**-9, 10**0]
+    vscale = [10**-7, 10**0]
 else:
-    vscale = [10**0, 10**9]
+    vscale = [10**3, 10**9]
 
 print("Loading in the hdf5 files!")
 import h5py
@@ -696,7 +697,7 @@ if bjyve:
     print("====> Starting process for PrimaryE vs Bjorken Y plots") 
        
     # there is a seaborn plotter thing that does bascially what I'm doing, but it's suuuuuper slow
-    nBinsss = 50
+    nBinsss = 25
 
     # this function takes a list of pairs [ energy, Bjorken Y] and a list of bin edges
     def get_means(data, bins):
@@ -714,13 +715,69 @@ if bjyve:
         errors = []
         for entry in holder:
             means.append( np.mean(entry) )
-            errors.append(( np.nanstd(entry))/np.sqrt(len(entry)) ) #std squared is variance 
+            errors.append(( np.nanstd(entry))/np.sqrt(len(entry)) ) #std squared is variance
+
         return([means, errors]) # calculate the average of each bin-list's entries, return the mean and variance 
 
-    print(currD)
-    print(mattD)
-    print(flavD)
-    
+    if True:
+        # constuct the data storage objects from which to create the plots
+        LepI_energy = [[[[] for current in range(len(currents))] for matter in range(len(matters))] for flavor in range(len(flavors))] 
+        LepI_bjy    = [[[[] for current in range(len(currents))] for matter in range(len(matters))] for flavor in range(len(flavors))] 
+
+        # fill the data storage objects...
+        print("Preparing Data")
+        for current in range(len(currents)):
+            if True:
+                current_index = current
+            else:
+                current_index = 0
+            for flavor in range(len(flavors)):
+                if True:
+                    flavor_index = flavor
+                else: # if we're not separating by flavor, the flavor-plot dimension is only 1 deep. Only use 0 index
+                    flavor_index = 0
+                for matter in range(len(matters)):
+                    if True:
+                        matter_index = matter
+                    else:
+                        matter_index = 0
+                    # adding to the data storage things from which to make the plots
+                    # scanning over all the separate keys in the data from pickles. 
+                    
+                    LepI_energy[flavor_index][matter_index][current_index] += list(LepI_input[flavors[flavor]+"_"+matters[matter]+"_"+currents[current]+"_primaryE"])
+                    LepI_bjy[flavor_index][matter_index][current_index]    += list(LepI_input[flavors[flavor]+"_"+matters[matter]+"_"+currents[current]+"_BjorkenY"])
+        
+
+
+        flux_means = np.array([ np.array([0. for i in range(nBinsss)]), np.array([0. for i in range(nBinsss)])])
+
+        for current in range(len(currents)):
+            for flavor in range(len(flavors)):
+                for matter in range(mattD):
+                    LepI_plots =  [ LepI_energy[flavor][matter][current], LepI_bjy[flavor][matter][current] ]
+                    LepI_plots = np.array(LepI_plots)
+                    LepI_plots = np.transpose(LepI_plots)
+                    bins = np.logspace( 2, 6, nBinsss)
+
+                    LepI_means = get_means(LepI_plots, bins) 
+                    # array( array(means), array(standard deviations) )
+                    LepI_means = np.array([ np.array(LepI_means[0]), np.array(LepI_means[1]) ])
+                    
+                    if current==0 and flavor==1:
+                        weight=15./40
+                    else:
+                        weight=1./40
+
+                    flux_means[0] += (weight*LepI_means[0])
+                    flux_means[1] += (weight*LepI_means[1])
+                    
+
+                    if flux_means[0][0] is np.nan:
+                        print("{}, {}, {}".format(current, flavor, matter))
+                        raise Exception("")
+
+    plt.fill_between(bins, flux_means[0]-flux_means[1], flux_means[0]+flux_means[1], color='r', alpha=0.2, label="LI: Flux-averaged")
+
     # constuct the data storage objects from which to create the plots
     LepI_energy = [[[[] for current in range(currD)] for matter in range(mattD)] for flavor in range(flavD)] 
     LepI_bjy    = [[[[] for current in range(currD)] for matter in range(mattD)] for flavor in range(flavD)] 
@@ -766,6 +823,8 @@ if bjyve:
 
     print(mattD)
     plt.figure(1)
+    
+
 
     for current in range(currD):
         #plt.clf()
@@ -792,6 +851,7 @@ if bjyve:
                 bins = np.logspace( 2, 6, nBinsss)
 
                 LepI_means = get_means(LepI_plots, bins) 
+                # array( array(means), array(standard deviations) )
                 LepI_means = np.array([ LepI_means[0], LepI_means[1] ])
                 
                 # index zero means the data
@@ -801,15 +861,36 @@ if bjyve:
                 else:
                     ls ='--'
                 #plt.errorbar(x=bins,y=LepI_means[0],yerr=LepI_means[1],xerr=None,capsize=5, drawstyle='steps', color=get_color(matter+2*current), label="{} ".format(currents[current])+get_nu(matter) )
-                plt.errorbar(x=bins,y=LepI_means[0],yerr=None,xerr=None,capsize=5, drawstyle='steps', color=color.get(flavor,matter,current), label=title.get(flavor,matter,current) )
+                plt.errorbar(x=bins,y=LepI_means[0],yerr=None,xerr=None,capsize=5, drawstyle='steps', color=color.get(flavor,matter,current), label="LI: "+title.get(flavor,matter,current) )
 #                axes[0].errorbar(x=bins,y=NuGe_means[0],yerr=NuGe_means[1],xerr=None,capsize=5, drawstyle='steps', color=get_color(2+matter), label="NG "+get_nu(matter) )
     
+
+
+    # plot the data! 
+    data_path = "/home/benito/Dropbox/Documents/Work/Research/IceCube/Projects/LeptonInjector/paper_data.json"
+    data_obj = open( data_path, 'r')
+    data = json.load( data_obj )
+    data_obj.close()
+
+    data_conv = []
+    # <bad>
+    for point in data:
+        data_conv.append( np.array([data[point]["x"], data[point]["x_var"][0], data[point]["x_var"][1], data[point]["y"], data[point]["y_var"][0], data[point]["y_var"][1]]) )
+    data_conv = np.array(data_conv).transpose()
+
+    plt.hlines( data_conv[3], data_conv[1], data_conv[2], label="IceCube Inelasticity 5yr")
+    plt.vlines( data_conv[0], data_conv[4], data_conv[5])
+
+
+    # </bad>
+       
+
     plt.xscale('log')
     plt.xlim([bins.min(),bins.max()])
     plt.ylim([0,0.6])
     plt.xlabel(r'$E_{\nu}$ [GeV]', size=16)
     plt.ylabel(r'$\left< y \right>$', size=16)            
-    plt.legend()
+    plt.legend(loc='lower left')
 #    plt.grid(which='major', alpha=0.6)
 #    plt.grid(which='minor', alpha=0.3)
     plt.tight_layout()
@@ -865,12 +946,15 @@ if energyQ:
                     histo_details = np.histogram(LepI_plots[flavor][matter][current],range=(bins.min(),bins.max()), bins=bins )
                     scale_data = histo_details[0]/sum(histo_details[0])
                 
-                plt.errorbar(0.5*(bins[:-1]+bins[1:]) ,scale_data,yerr=None,xerr=None,capsize=5, drawstyle='steps', color=color.get(flavor,matter,current), label=title.get(flavor,matter,current) )
+                plt.errorbar(0.5*(bins[:-1]+bins[1:]) ,scale_data,yerr=None,xerr=None,capsize=5, drawstyle='steps', color=color.get(flavor,matter,current), label="LI: "+title.get(flavor,matter,current) )
     plt.yscale('log')
     plt.xscale('log')
     plt.xlim([bins.min(),bins.max()])
     plt.ylim([vscale[0], vscale[1]])
-    plt.ylabel(r"$E^{2}dN/dE$ [GeV yr$^{-1}$]",size=14)
+    if no_weight:
+        plt.ylabel(r"$E^{2}dN/dE$ [GeV]",size=14)
+    else:
+        plt.ylabel(r"$E^{2}dN/dE$ [GeV yr$^{-1}$]",size=14)
     plt.legend()
     plt.tight_layout()
     plt.xlabel("Primary Lepton Energy [GeV]", size=14)
