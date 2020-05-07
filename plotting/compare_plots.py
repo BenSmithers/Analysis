@@ -1,4 +1,4 @@
-#!/cvmfs/icecube.opensciencegrid.org/py3-v4/RHEL_7_x86_64/bin/python3.6
+#!/cvmfs/icecube.opensciencegrid.org/py3-v4.1.0/RHEL_7_x86_64/bin/python3.6
 
 
 # Ben Smithers
@@ -20,6 +20,10 @@ print("Running Matplotlib version: "+matplotlib.__version__)
 ## matplotlib.use('tkagg')
 import matplotlib.pyplot as plt
 import warnings
+
+import matplotlib.font_manager
+style_file = '/home/bsmithers/paper.mplstyle'
+plt.style.use(style_file)
 
 # this is required for running as a condor job
 os.environ['HDF5_USE_FILE_LOCKING'] ='FALSE'
