@@ -10,8 +10,10 @@ def sci(number):
     order = int(np.log10(number))
     return("{:.2f}e{}".format(number/(10**order),order))
 
-total_reactor_emission = 2.e20 # neuts/second
+total_reactor_emission = 3.1277e17 # neuts/second
+total_reactor_uncertainty = 5948316645077599.0
 diff_reactor_emission = total_reactor_emission/(4*pi)
+diff_reactor_uncertainty = total_reactor_uncertainty/(4*pi)
 
 earth_area = 3.61e8 # km^2 
 detector_radius = 1e-3 # km
@@ -38,6 +40,6 @@ centers=0.5*(dist_bins[1:]+dist_bins[:-1])
 probs = prob(centers)
 neuts_on_target = n_boats*total_reactor_emission*probs*(pi*detector_radius**2)/(4*pi*centers**2)
 # uncertainty on position will be root(max_distance/12.)
-unc = sci(sum(neuts_on_target*((np.sqrt(max_distance/12.)/max_distance) + float(unc_boat)/n_boats ) + sqrt(diff_reactor_emission)/diff_reactor_emission ))
+unc = sci(sum(neuts_on_target*((np.sqrt(max_distance/12.)/max_distance) + float(unc_boat)/n_boats ) + diff_reactor_uncertainty/diff_reactor_emission ))
 
 print("{} +/- {}".format(sci(sum(neuts_on_target)), unc))
