@@ -1,4 +1,4 @@
-###!/cvmfs/icecube.opensciencegrid.org/py3-v4.1.0/RHEL_7_x86_64/bin/python3.6
+#!/usr/bin/python3.6m
 
 
 # Ben Smithers
@@ -137,20 +137,22 @@ print("Loading in the hdf5 files!")
 import h5py
 
 # open hdf5 file
-op_file = h5py.File(ops_folder + "LepI_processed.hdf5",'r')
-LepI_input = {}
+#op_file = h5py.File(ops_folder + "LepI_processed.hdf5",'r')
+
+LepI_input = h5py.File(ops_folder + "LepI_processed.hdf5",'r')
+#LepI_input = {}
 # transcribe the contents into a dictionary. 
 #   later on, we will access the contents of the keys and cast them as lists
-for key in op_file:
+#for key in op_file:
     # sending the hdf5 list-like object to a ndarray and then to a list is WAY WAY WAY faster than directly casting it as a list
-    LepI_input[key] = np.array(op_file[key]).tolist()
-op_file.close()
+ #   LepI_input[key] = np.array(op_file[key]).tolist()
+#op_file.close()
 
-op_file = h5py.File(ops_folder + "NuGe_processed.hdf5",'r')
-NuGe_input = {}
-for key in op_file:
-    NuGe_input[key] = np.array(op_file[key]).tolist()
-op_file.close()
+NuGe_input = h5py.File(ops_folder + "NuGe_processed.hdf5",'r')
+#NuGe_input = {}
+#for key in op_file:
+#    NuGe_input[key] = np.array(op_file[key]).tolist()
+#op_file.close()
 
 
 # close file, open new file
