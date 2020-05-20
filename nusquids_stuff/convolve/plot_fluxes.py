@@ -5,6 +5,7 @@ This script plots the fluxes output by the convolve cpp script
 
 import numpy as np
 import matplotlib
+# Need to use agg since Tk isn't on the cobalts??? 
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 from cross_section_test import get_diff_flux
@@ -25,6 +26,8 @@ def get_color(which, how_many=n_colors):
 def get_flavor( key ):
     '''
     take a flux dictionary key and return the nusquids flavor type
+    
+    The dictionary key will be like "electorn_stuff_stuff"
     '''
     if not isinstance(key, str):
         raise TypeError("Expected {}, got {}".format(str, type(key)))
@@ -82,14 +85,13 @@ def get_index( key ):
         raise TypeError("Expected {}, got {}".format(str, type(key)))
     split = key.split('_')
     flavor = split[0]
-    variety = split[1]
+    variety = split[1] # nu or nu-bar 
 
     flav_index = flavors.index(flavor)
     variety_index = neuts.index(variety)
     return( 2 + int( flav_index + len(flavors)*variety_index) )
 
 
-curr = nsq.NeutrinoCrossSections_Current.NC
 
 # load the data in
 print("Extracting Data")
@@ -132,6 +134,7 @@ for flav in flavors:
         for curr in currents:
             key = flav+'_'+neut + '_'+curr
             if flav=='Mu' and curr=='CC':
+                # skip tracks 
                 continue 
             scale_with = 1.
 #            scale_with = get_diff_flux((10**energies[energy]), get_flavor(key), get_neut(key), get_curr(key))
@@ -149,8 +152,7 @@ def get_flux( energy, key, use_overflow = False):
     interpolation done in log-space of energy! 
 
 
-    returns NONE if energy is beyond edges of flux data
-    returns DOUBLE otherwise 
+    returns DOUBLE  (0.0 if beyond scope of data)
     '''
     if not (key in fluxes):
         raise ValueError("Bad key {}".format(key))
@@ -230,7 +232,8 @@ plt.clf()
 # now I'm trying tofix what the final state energy is, and look at the relative rates of initial neutrino energy that would give rise to this event 
 cool_plot = True
 if cool_plot:
-    event = 100*const.GeV
+    CC_E_energy = 0.98 # ratio of energy recovered in a CC electron cascade
+    event = 100*const.GeV # observed energy of cascade 
     by_min = -5
     by_max = 0
     n_bins = 200
@@ -242,33 +245,61 @@ if cool_plot:
             widths[i]=abs(in_energies[1]-in_energies[0])/const.GeV
         else:
             widths[i]=abs(in_energies[i]-in_energies[i-1])/const.GeV
-
+    print("In Energy Increasing" if in_energies[1]>in_energies[0] else "In Energy Decreasing")
     from_muon = np.array([ 0. for energy in range(n_bins) ])
     from_not = np.array([ 0. for energy in range(n_bins) ])
     from_diffy = {}
     for flav in flavors:
         for neut in neuts:
             for curr in currents:
-                if flav=='Mu' and curr=='CC':
+                if (flav=='Mu' or flav=='Tau') and curr=='CC': # skip the tracks 
                     continue 
                    
+                # in-energy needs to be changed. 
+                # if it's a normal hadronic cascade (muon NC)
+
+                # if it's an electron cascade, then that means this total energy is split between the hadronic and electric component... uugh. Then we need to consider the energy of the electron
+                # OH! Then we just care about the total cross section! 
 
                 key = flav+'_'+neut + '_'+curr
-                from_diffy[key] = [get_flux(np.log10(in_energies[j]), key)*get_diff_flux(in_energies[j], get_flavor(key), get_neut(key), get_curr(key), event,0.)*widths[j] for j in range(n_bins)]
+                if flav=='E' and curr=='CC':
+                    # in this case, we recover the energy from the entire cascade, so we essentially exactly know the energy of the parent neutrino
+                    # and so get the total cross-section/flux from that energy and put it all in one bin
+                    force_initial_energy = event/CC_E_energy 
+                    from_diffy[key] = [0.0 for j in range(n_bins)]
+                    which_bin = n_bins - 1
+                    while in_energies[which_bin]<force_initial_energy:
+                        which_bin-=1
+                    from_diffy[key][which_bin] = get_flux(np.log10(in_energies[which_bin]), key)*get_diff_flux(in_energies[which_bin], get_flavor(key), get_neut(key), get_curr(key))*widths[which_bin] 
+                else:
+                    from_diffy[key] = [get_flux(np.log10(in_energies[j]), key)*get_diff_flux(in_energies[j], get_flavor(key), get_neut(key), get_curr(key),in_energies[j]-event,0.)*widths[j] for j in range(n_bins)]
                 # this evaluates in (N / GeV)
                 if curr=='NC' and flav=='Mu':
                     from_muon += np.array(from_diffy[key])
                 else:
                     from_not += np.array(from_diffy[key])
-    norm = sum(from_muon)+sum(from_not)
-    # these are properly normalized so that you can integrate over part of the trend to get the probability the event was of that type 
-    for i in range(n_bins):
-        from_muon[i]=from_muon[i]/(widths[i]*norm)
-        from_not[i] =from_not[i]/(widths[i]*norm)
+
+    
+    isolation = False
+    if isolation:
+        norm = sum(from_muon)+sum(from_not)
+        # these are properly normalized so that you can integrate over part of the trend to get the probability the event was of that type 
+        for i in range(n_bins):
+            from_muon[i]=from_muon[i]/(widths[i]*norm)
+            from_not[i] =from_not[i]/(widths[i]*norm)
 
 
-    plt.plot(in_energies/const.GeV, from_muon, color=get_color(0,2),label="Muon Origin")
-    plt.plot(in_energies/const.GeV, from_not, color=get_color(1,2),label="Other Origin")
+        plt.plot(in_energies/const.GeV, from_muon, color=get_color(0,2),label="Muon Origin")
+        plt.plot(in_energies/const.GeV, from_not, color=get_color(1,2),label="Other Origin")
+    else:
+        norm = sum([ sum(from_diffy[key]) for key in from_diffy ])
+        n_colors = len(list(from_diffy.keys()))
+        counter = 0
+        for key in from_diffy:
+            from_diffy[key] = [value/norm for value in from_diffy[key]]
+            plt.plot( in_energies/const.GeV, from_diffy[key], color=get_color(counter, n_colors),label=key)
+            counter+=1
+
     plt.xscale('log')
     plt.yscale('log')
     plt.title("{:.2f}GeV Cascade Rates".format(event/const.GeV))
