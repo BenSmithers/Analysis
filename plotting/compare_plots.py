@@ -1,4 +1,4 @@
-#!/cvmfs/icecube.opensciencegrid.org/py3-v4.1.0/RHEL_7_x86_64/bin/python3.6
+###!/cvmfs/icecube.opensciencegrid.org/py3-v4.1.0/RHEL_7_x86_64/bin/python3.6
 
 
 # Ben Smithers
@@ -17,7 +17,7 @@ import os
 import numpy as np
 import matplotlib
 print("Running Matplotlib version: "+matplotlib.__version__)
-## matplotlib.use('tkagg')
+matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import warnings
 
@@ -121,7 +121,7 @@ lims = [10**-8, 10**0]
 
 try:
     os.mkdir( ops_folder + "output" )
-except FileExistsError: 
+except Exception: 
     pass
 
 # prepare the color palette
@@ -174,17 +174,22 @@ def make_title(sep_flavor, sep_matter, sep_current, flavor, matter, current):
         if title=="":
             title += flavors[flavor]
         else:
-            title += "_"+flavors[flavor]
+            title += " "+flavors[flavor]
     if sep_matter:
-        if title=="":
-            title += matters[matter]
+        if matters[matter]=='anti_matter':
+            use = "anti-matter"
         else:
-            title += "_" + matters[matter]
+            use = 'matter'
+
+        if title=="":
+            title += use
+        else:
+            title += " " + use
     if sep_current:
         if title=="":
             title += currents[current]
         else:
-            title += "_"+currents[current]
+            title += " "+currents[current]
     return(title)
 
 
@@ -304,7 +309,7 @@ if bjorken_x:
                 plt.clf()
                 plot_title = make_title(sep_flavor, sep_matter, sep_current, flavor, matter, current)
                 figs, axes = plt.subplots(nrows=2, ncols=1, sharex=True, gridspec_kw={'height_ratios':[3,1]})
-                figs.suptitle(plot_title, size=16)
+                #figs.suptitle(plot_title, size=16)
 
                 #plot the LI+NG histograms
                 axes[0].plot( 0.5*(bins[:-1]+bins[1:]) , scale_data , color=get_color(0),ls='-', drawstyle='steps', label="Lepton Injector")
@@ -325,10 +330,11 @@ if bjorken_x:
                 axes[0].set_ylim(the_lims)
                 axes[1].set_ylim([-2,2])
                 axes[0].legend()
-                axes[0].set_ylabel(r"$dN/dE$ [GeV$^{-1}$yr$^{-1}$]",size=14)
+                axes[0].set_ylabel(r"$dN/dE$ [GeV$^{-1}$]",size=14)
                 axes[1].set_ylabel("LI-NuG/LI", size=14)
                 axes[1].set_xlabel("Bjorken X", size=14)
-                figs.savefig( ops_folder+"/output/"+ "BjorkenX_"+plot_title+".png", dpi=400)
+                figs.tight_layout()
+                figs.savefig( str(ops_folder+"/output/"+ "BjorkenX "+plot_title+".png"))
                 plt.close()
 else:
     print("Skipping Bjorken X") #do nothing...
@@ -392,7 +398,7 @@ if bjorken_y:
                 plt.clf()
                 plot_title = make_title(sep_flavor, sep_matter, sep_current, flavor, matter, current)
                 figs, axes = plt.subplots(nrows=2, ncols=1, sharex=True, gridspec_kw={'height_ratios':[3,1]})
-                figs.suptitle(plot_title, size=16)
+                #figs.suptitle(plot_title, size=16)
 
                 #plot the LI+NG histograms
                 axes[0].plot( 0.5*(bins[:-1]+bins[1:]) , scale_data , color=get_color(0),ls='-', drawstyle='steps', label="Lepton Injector")
@@ -411,11 +417,12 @@ if bjorken_y:
                 axes[1].set_xlim([bins.min(),bins.max()])
                 axes[0].set_ylim(the_lims)
                 axes[1].set_ylim([-2,2])
-                axes[0].set_ylabel(r"$dN/dE$ [GeV$^{-1}$yr$^{-1}$]",size=14)
+                axes[0].set_ylabel(r"$dN/dE$ [GeV$^{-1}$]",size=14)
                 axes[0].legend()
                 axes[1].set_ylabel("LI-NuG/LI", size=14)
                 axes[1].set_xlabel("Bjorken Y", size=14)
-                figs.savefig( ops_folder+"/output/"+ "BjorkenY_"+plot_title+".png", dpi=400)
+                figs.tight_layout()
+                figs.savefig( ops_folder+"/output/"+ "BjorkenY "+plot_title+".png", dpi=400)
                 plt.close()
 else:
     print("Skipping Bjorken Y")
@@ -474,7 +481,7 @@ if hadrons:
                 plt.clf()
                 plot_title = make_title(sep_flavor, sep_matter, sep_current, flavor, matter, current)
                 figs, axes = plt.subplots(nrows=2, ncols=1, sharex=True, gridspec_kw={'height_ratios':[3,1]})
-                figs.suptitle(plot_title, size=16)
+                #figs.suptitle(plot_title, size=16)
 
                 #plot the LI+NG histograms
                 axes[0].plot( 0.5*(bins[:-1]+bins[1:]) , scale_data , color=get_color(0),ls='-', drawstyle='steps', label="Lepton Injector")
@@ -490,11 +497,12 @@ if hadrons:
                 axes[1].set_xlim([bins.min(),bins.max()])
                 axes[0].set_ylim(the_lims)
                 axes[1].set_ylim([-2,2])
-                axes[0].set_ylabel(r"$dN/dE$ [GeV$^{-1}$yr$^{-1}$]",size=14)
+                axes[0].set_ylabel(r"$dN/dE$ [GeV$^{-1}$]",size=14)
                 axes[0].legend()
                 axes[1].set_ylabel("LI-NuG/LI", size=14)
                 axes[1].set_xlabel(r"Hadrons $\cos\theta_{zenith}$", size=14)
-                figs.savefig( ops_folder+"/output/"+ "HadronsCosZ_"+plot_title+".png", dpi=400)
+                figs.tight_layout()
+                figs.savefig( ops_folder+"/output/"+ "HadronsCosZ "+plot_title+".png", dpi=400)
                 plt.close()
 else:
     print("Skipping Hadrons Cosz")
@@ -555,7 +563,7 @@ if opening_angle:
                 plt.clf()
                 plot_title = make_title(sep_flavor, sep_matter, sep_current, flavor, matter, current)
                 figs, axes = plt.subplots(nrows=2, ncols=1, sharex=True, gridspec_kw={'height_ratios':[3,1]})
-                figs.suptitle(plot_title, size=16)
+                #figs.suptitle(plot_title, size=16)
 
                 #plot the LI+NG histograms
                 axes[0].plot( 0.5*(bins[:-1]+bins[1:]) , scale_data , color=get_color(0),ls='-', drawstyle='steps', label="Lepton Injector")
@@ -572,10 +580,11 @@ if opening_angle:
                 axes[0].set_ylim(the_lims)
                 axes[1].set_ylim([-2,2])
                 axes[0].legend()
-                axes[0].set_ylabel(r"$dN/dE$ [GeV$^{-1}$yr$^{-1}$]",size=14)
+                axes[0].set_ylabel(r"$dN/dE$ [GeV$^{-1}$]",size=14)
                 axes[1].set_ylabel("LI-NuG/LI", size=14)
-                axes[1].set_xlabel(r"Opening Angle: $\theta_{\mu}+\theta_{w}$", size=14)
-                figs.savefig( ops_folder+"/output/"+ "openingAngle_"+plot_title+".png", dpi=400)
+                axes[1].set_xlabel(r"Opening Angle", size=14)
+                figs.tight_layout()
+                figs.savefig( ops_folder+"/output/"+ "openingAngle "+plot_title+".png", dpi=400)
                 plt.close()
 else:
     print("Skipping opening angle")
@@ -634,7 +643,7 @@ if secondary_e:
                 plt.clf()
                 plot_title = make_title(sep_flavor, sep_matter, sep_current, flavor, matter, current)
                 figs, axes = plt.subplots(nrows=2, ncols=1, sharex=True, gridspec_kw={'height_ratios':[3,1]})
-                figs.suptitle(plot_title, size=16)
+                #figs.suptitle(plot_title, size=16)
 
                 #plot the LI+NG histograms
                 axes[0].plot( 0.5*(bins[:-1]+bins[1:]) , scale_data , color=get_color(0),ls='-', drawstyle='steps', label="Lepton Injector")
@@ -651,12 +660,13 @@ if secondary_e:
                 axes[0].set_xlim([bins.min(),bins.max()])
                 axes[1].set_xlim([bins.min(),bins.max()])
                 axes[0].set_ylim(the_lims)
-                axes[0].set_ylabel(r"Flux $dN/dE$ [GeV$^{-1}$yr$^{-1}$]",size=14)
+                axes[0].set_ylabel(r"Flux $dN/dE$ [GeV$^{-1}$]",size=14)
                 axes[1].set_ylim([-2,2])
                 axes[0].legend()
                 axes[1].set_ylabel("LI-NuG/LI", size=14)
-                axes[1].set_xlabel("Secondary Lepton Energy [GeV]", size=14)
-                figs.savefig( ops_folder+"/output/"+ "secondaryE_"+plot_title+".png", dpi=400)
+                axes[1].set_xlabel("Injected Lepton Energy [GeV]", size=14)
+                figs.tight_layout()
+                figs.savefig( ops_folder+"/output/"+ "secondaryE "+plot_title+".png", dpi=400)
                 plt.close()
 else:
     print("Skipping secondary energy")
@@ -717,7 +727,7 @@ if hadrons_def:
                 plt.clf()
                 plot_title = make_title(sep_flavor, sep_matter, sep_current, flavor, matter, current)
                 figs, axes = plt.subplots(nrows=2, ncols=1, sharex=True, gridspec_kw={'height_ratios':[3,1]})
-                figs.suptitle(plot_title, size=16)
+                #figs.suptitle(plot_title, size=16)
 
                 #plot the LI+NG histograms
                 axes[0].plot( 0.5*(bins[:-1]+bins[1:]) , scale_data , color=get_color(0),ls='-', drawstyle='steps', label="Lepton Injector")
@@ -732,12 +742,13 @@ if hadrons_def:
                 axes[0].set_xlim([bins.min(),bins.max()])
                 axes[1].set_xlim([bins.min(),bins.max()])
                 axes[0].set_ylim(the_lims)
-                axes[0].set_ylabel(r"$dN/dE$ [GeV$^{-1}$yr$^{-1}$]",size=14)
+                axes[0].set_ylabel(r"$dN/dE$ [GeV$^{-1}$]",size=14)
                 axes[1].set_ylim([-2,2])
                 axes[0].legend()
                 axes[1].set_ylabel("LI-NuG/LI", size=14)
                 axes[1].set_xlabel("Hadrons deflection [deg]", size=14)
-                figs.savefig( ops_folder+"/output/"+ "hadronDef_"+plot_title+".png", dpi=400)
+                figs.tight_layout()
+                figs.savefig( ops_folder+"/output/"+ "hadronDef "+plot_title+".png", dpi=400)
                 plt.close()
 else:
     print("Skipping hadron deflection")
@@ -808,10 +819,6 @@ if bjyve:
         for y in range(flavD):
             for z in range(mattD):
                 print(type( LepI_energy[y][z][x]))
-    print("flavors: {}".format(len(LepI_energy)))
-    print("matters: {}".format(len(LepI_energy[0])))
-    print("currents: {}".format(len(LepI_energy[0][0])))
-    print("")
     print("")
     print("====> Making BjY vs E plots")
 
@@ -861,17 +868,18 @@ if bjyve:
                 # index zero means the data
                 # index one means the error bars
                 # yerr= LepI_means[1] and NuGe_means[1]
-                axes[0].errorbar(x=bins,y=LepI_means[0],yerr=None,xerr=None,capsize=5, drawstyle='steps', color=get_color(0+matter), label="LI "+get_nu(matter) )
-                axes[0].errorbar(x=bins,y=NuGe_means[0],yerr=None,xerr=None,capsize=5, drawstyle='steps', color=get_color(2+matter), label="NG "+get_nu(matter) )
+                axes[0].errorbar(x=bins,y=LepI_means[0],yerr=None,xerr=None,capsize=5, drawstyle='steps', color=get_color(0+matter), label="Lepton Injector "+get_nu(matter) )
+                axes[0].errorbar(x=bins,y=NuGe_means[0],yerr=None,xerr=None,capsize=5, drawstyle='steps', color=get_color(2+matter), label="NuGen "+get_nu(matter) )
                 axes[0].set_xscale('log')
                 axes[0].set_xlim([bins.min(),bins.max()])
                 axes[0].set_ylim([0,0.6])
                 axes[1].set_xlabel(r'$E_{\nu}$ [GeV]', size=14)
-                axes[0].set_ylabel('Bjorken Y', size=14)
+                axes[0].set_ylabel(r'$\left<y\right>$', size=14)
                 
                 axes[1].set_xlim([bins.min(),bins.max()])
                 axes[1].set_xscale('log')
-                axes[1].set_ylim([0.9,1.1])
+                axes[1].set_ylim([0.95,1.2])
+                axes[1].set_ylabel("Ratio",size=14)
                 axes[1].errorbar(x=bins, y=LepI_means[0]/NuGe_means[0],yerr=(LepI_means[0]/NuGe_means[0])*(LepI_means[1]/LepI_means[0] + NuGe_means[1]/NuGe_means[0]),xerr=None,capsize=5, drawstyle='steps', color=get_color( 0.5+2*float(matter)), label="LI/NG "+get_nu(matter))
                 
 
@@ -880,8 +888,9 @@ if bjyve:
                 #plt.savefig( ops_folder+"/output/"+ "primaryE_vs_Y_"+plot_title+".png", dpi=400)
                 #plt.close() 
         axes[0].legend()
-        axes[1].legend()
-        figs.savefig( ops_folder+"/output/super_bjve_{}.png".format(get_curr(current)), dpi=400 )
+        axes[1].legend(loc=2)
+        figs.tight_layout()
+        figs.savefig( ops_folder+"/output/super_bjve {}.png".format(get_curr(current)), dpi=400 )
         figs.clf()
         #plt.close(figs)
 else:
@@ -941,7 +950,7 @@ if energyQ:
                 plt.clf()
                 plot_title = make_title(sep_flavor, sep_matter, sep_current, flavor, matter, current)
                 figs, axes = plt.subplots(nrows=2, ncols=1, sharex=True, gridspec_kw={'height_ratios':[3,1]})
-                figs.suptitle(plot_title, size=16)
+                #figs.suptitle(plot_title, size=16)
 
                 #plot the LI+NG histograms
                 axes[0].plot( 0.5*(bins[:-1]+bins[1:]) , scale_data , color=get_color(0),ls='-', drawstyle='steps', label="Lepton Injector")
@@ -959,11 +968,12 @@ if energyQ:
                 axes[1].set_xlim([bins.min(),bins.max()])
                 axes[0].set_ylim(the_lims)
                 #axes[1].set_ylim([0,0.5])
-                axes[0].set_ylabel(r"$E^{1}dN/dE$ [yr$^{-1}$]",size=14)
+                axes[0].set_ylabel(r"$E^{1}dN/dE$",size=14)
                 axes[0].legend()
                 axes[1].set_ylabel("LI-NuG/LI", size=14)
                 axes[1].set_xlabel("Primary Lepton Energy [GeV]", size=14)
-                figs.savefig( ops_folder+"/output/"+ "primaryE_"+plot_title+".png", dpi=400)
+                figs.tight_layout()
+                figs.savefig( ops_folder+"/output/"+ "primaryE "+plot_title+".png", dpi=400)
                 plt.close()
     Lepi_plots = None
     NuGe_plots = None
