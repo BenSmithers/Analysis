@@ -114,113 +114,114 @@ def get_index( key ):
     variety_index = neuts.index(variety)
     return( 2 + int( flav_index + len(flavors)*variety_index) )
 
+class Data:
+    """
+    This is used as a container for the data loaded in from nuSQuIDS. 
+    The main benefit of this is that the objects used by the interpolator are kept in a sterile scope, 
+        and we don't have to worry about accidentally renaming an important object!  
+    
+    It loads it up into a convenient format for access, and provides a function for interpolating what is loaded. 
+    """
+    def __init__(self, filename='atmosphere.txt'):
+        """
+        Loads in the specified nuSQuIDS datafile. 
+        """
+        print("Extracting Data")
+        data = np.loadtxt(os.path.join( os.path.dirname(__file__), 'atmosphere.txt'), dtype=float, comments='#',delimiter=' ')
+        n_energies = 700
+        n_angles = 100
+        assert( len(data) == (n_energies*n_angles))
 
-
-# load the data in
-print("Extracting Data")
-data = np.loadtxt(os.path.join( os.path.dirname(__file__), 'atmosphere.txt'), dtype=float, comments='#',delimiter=' ')
-n_energies = 700
-n_angles = 100
-assert( len(data) == (n_energies*n_angles))
-
-# this funnny indexing is a result of the way I output the data from nuSQuIDS
-# it loops through energies for each angle
-print("Building Energy and Angle Arrays")
-energies = [data[i][0] for i in range(n_energies)]
-if energies[1]>energies[0]:
-    print("growing")
-else:
-    print("decreasing")
-en_width = [0. for i in range(n_energies)]
-for i in range(n_energies):
-    if i==0:
-        en_width[i] = (10**energies[1]- 10**energies[0])/const.GeV
-    else:
-        en_width[i] = (10**energies[i] - 10**energies[i-1])/const.GeV
-angles = [data[n_energies*i][1] for i in range(n_angles)]
-an_width = [0. for i in range(n_angles)]
-for i in range(n_angles):
-    if i ==0:
-        an_width[0] = abs( np.arccos(angles[1]) - np.arccos(angles[0]))
-    else:
-        an_width[i] = abs( np.arccos(angles[i]) - np.arccos(angles[i-1]))
-
-# let's fill out some flux functions
-# in the data file, these data are written in a big list. But that's not a very handy format
-# so I'm converting these into 2D arrays
-print("Caltulating Fluxes with XS")
-fluxes = {}
-muon_ones = np.array([ 0. for energy in range(n_energies) ])
-not_muon  = np.array([ 0. for energe in range(n_energies) ])
-for flav in flavors:
-    for neut in neuts:
-        for curr in currents:
-            key = flav+'_'+neut + '_'+curr
-            if flav=='Mu' and curr=='CC':
-                # skip tracks 
-                continue 
-            scale_with = 1.
-#            scale_with = get_diff_flux((10**energies[energy]), get_flavor(key), get_neut(key), get_curr(key))
-
-            fluxes[ key ] = [sum([ data[energy+angle*n_energies][get_index(key)]*an_width[angle] for angle in range(n_angles)])*scale_with*(en_width[energy])*2*np.pi for energy in range(n_energies)]
-            
-            if curr=='NC' and flav=='Mu':
-                muon_ones += np.array(fluxes[key])
+        # this funnny indexing is a result of the way I output the data from nuSQuIDS
+        # it loops through energies for each angle
+        print("Building Energy and Angle Arrays")
+        self.energies = [data[i][0] for i in range(n_energies)]
+        if self.energies[1]>self.energies[0]:
+            print("growing")
+        else:
+            print("decreasing")
+        en_width = [0. for i in range(n_energies)]
+        for i in range(n_energies):
+            if i==0:
+                en_width[i] = (10**self.energies[1]- 10**self.energies[0])/const.GeV
             else:
-                not_muon += np.array(fluxes[key])
+                en_width[i] = (10**self.energies[i] - 10**self.energies[i-1])/const.GeV
+        angles = [data[n_energies*i][1] for i in range(n_angles)]
+        an_width = [0. for i in range(n_angles)]
+        for i in range(n_angles):
+            if i ==0:
+                an_width[0] = abs( np.arccos(angles[1]) - np.arccos(angles[0]))
+            else:
+                an_width[i] = abs( np.arccos(angles[i]) - np.arccos(angles[i-1]))
 
-def get_flux( energy, key, use_overflow = False):
-    '''
-    interpolates between entries in the flux dictionary to return the flux at arbitrary energy
+        # let's fill out some flux functions
+        # in the data file, these data are written in a big list. But that's not a very handy format
+        # so I'm converting these into 2D arrays
+        self.fluxes = {}
+        for flav in flavors:
+            for neut in neuts:
+                for curr in currents:
+                    key = flav+'_'+neut + '_'+curr
+                    if flav=='Mu' and curr=='CC':
+                        # skip tracks 
+                        continue 
+
+                    self.fluxes[ key ] = [sum([ data[energy+angle*n_energies][get_index(key)]*an_width[angle] for angle in range(n_angles)])*(en_width[energy])*2*np.pi for energy in range(n_energies)]
+
+    def get_flux(self, energy, key, use_overflow = False):
+        '''
+        interpolates between entries in the flux dictionary to return the flux at arbitrary energy
 
 
-    returns DOUBLE  (0.0 if beyond scope of data)
-    '''
-    if not (key in fluxes):
-        raise ValueError("Bad key {}".format(key))
-    if not (isinstance(energy, float) or isinstance(energy, int)):
-        raise TypeError("Expected {}, not {}".format(float, type(energy)))
+        returns DOUBLE  (0.0 if beyond scope of data)
+        '''
+        if not (key in self.fluxes):
+            raise ValueError("Bad key {}".format(key))
+        if not (isinstance(energy, float) or isinstance(energy, int)):
+            raise TypeError("Expected {}, not {}".format(float, type(energy)))
 
-    
+        
 
-    # check if it's outside the extents
-    if energy < 10**energies[0]:
-        if use_overflow:
-            return(10**energies[0])
-        else:
-            return(0)
-    if energy > 10**energies[-1]:
-        if use_overflow:
-            return(10**energies[n_energies - 1])
-        else:
-            return(0)
-    
-    # should execute in O(N) time 
-    upper_boundary = 1
-    while energy>(10**energies[upper_boundary]):
-        upper_boundary += 1
-    lower_boundary = upper_boundary - 1
+        # check if it's outside the extents
+        if energy < 10**self.energies[0]:
+            if use_overflow:
+                return(10**self.energies[0])
+            else:
+                return(0)
+        if energy > 10**self.energies[-1]:
+            if use_overflow:
+                return(10**self.energies[n_energies - 1])
+            else:
+                return(0)
+        
+        # should execute in O(N) time 
+        upper_boundary = 1
+        while energy>(10**self.energies[upper_boundary]):
+            upper_boundary += 1
+        lower_boundary = upper_boundary - 1
 
-    # sanity check... 
-    # essentially makes sure that the energies are monotonically increasing 
-    if not ((10**energies[lower_boundary] <= energy) and (10**energies[upper_boundary] >= energy)):
-        print("energy: {}".format(energy))
-        print("lower bound: {}".format(10**energies[lower_boundary]))
-        print("upper bound: {}".format(10**energies[upper_boundary]))
-        print("indices: {}, {}".format(lower_boundary, upper_boundary))
-        raise Exception()
+        # sanity check... 
+        # essentially makes sure that the energies are monotonically increasing 
+        if not ((10**self.energies[lower_boundary] <= energy) and (10**self.energies[upper_boundary] >= energy)):
+            print("energy: {}".format(energy))
+            print("lower bound: {}".format(10**self.energies[lower_boundary]))
+            print("upper bound: {}".format(10**self.energies[upper_boundary]))
+            print("indices: {}, {}".format(lower_boundary, upper_boundary))
+            raise Exception()
 
-    # logarithmic interpolation
-    # linear in log-energy space 
-    y2 = fluxes[key][upper_boundary]
-    y1 = fluxes[key][lower_boundary]
-    x2 = 10**energies[upper_boundary]
-    x1 = 10**energies[lower_boundary]
-    
-    flux_value = energy*((y2-y1)/(x2-x1) ) + y2 -x2*((y2-y1)/(x2-x1))
-    return(flux_value)
+        # logarithmic interpolation
+        # linear in log-energy space 
+        y2 = self.fluxes[key][upper_boundary]
+        y1 = self.fluxes[key][lower_boundary]
+        x2 = 10**self.energies[upper_boundary]
+        x1 = 10**self.energies[lower_boundary]
+        
+        flux_value = energy*((y2-y1)/(x2-x1) ) + y2 -x2*((y2-y1)/(x2-x1))
+        return(flux_value)
 
-scale_e = 10**np.array(energies)
+data = Data()
+
+scale_e = 10**np.array(data.energies)
 
 # this block here is supposed to just plot all the raw fluxes 
 plot_all = False
@@ -282,14 +283,9 @@ def get_distribs_for_initial_energy(event, in_energies):
         for neut in neuts:
             for curr in currents:
                 if (flav=='Mu' or flav=='Tau') and curr=='CC': # skip the tracks 
-                    continue 
-                   
+                    continue                    
                 # in-energy needs to be changed. 
                 # if it's a normal hadronic cascade (muon NC)
-
-                # if it's an electron cascade, then that means this total energy is split between the hadronic and electric component... uugh. Then we need to consider the energy of the electron
-                # OH! Then we just care about the total cross section! 
-
                 key = flav+'_'+neut + '_'+curr
                 if flav=='E' and curr=='CC':
                     # in this case, we recover the energy from the entire cascade, so we essentially exactly know the energy of the parent neutrino
@@ -302,9 +298,10 @@ def get_distribs_for_initial_energy(event, in_energies):
                         if (which_bin==n_bins or which_bin==-1):
                             break                
                     if (which_bin!=n_bins and which_bin>=0):
-                        from_diffy[key][which_bin] = get_flux(in_energies[which_bin], key)*get_diff_flux(in_energies[which_bin], get_flavor(key), get_neut(key), get_curr(key))*widths[which_bin] 
+                        # in this case, there is only one parent particle energy which could cause this cascade. So we get the total cross section! 
+                        from_diffy[key][which_bin] = data.get_flux(in_energies[which_bin], key)*get_diff_flux(in_energies[which_bin], get_flavor(key), get_neut(key), get_curr(key))*widths[which_bin] 
                 else:
-                    from_diffy[key] = [get_flux(in_energies[j], key)*get_diff_flux(in_energies[j], get_flavor(key), get_neut(key), get_curr(key),in_energies[j]-event,0.)*widths[j] for j in range(n_bins)]
+                    from_diffy[key] = [data.get_flux(in_energies[j], key)*get_diff_flux(in_energies[j], get_flavor(key), get_neut(key), get_curr(key),in_energies[j]-event,0.)*widths[j] for j in range(n_bins)]
     return(from_diffy, widths)
 
 if mode==0 or mode==1:
