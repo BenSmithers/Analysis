@@ -4,17 +4,40 @@ This script plots the fluxes output by the convolve cpp script
 '''
 
 import numpy as np
+
+
 import matplotlib
 # Need to use agg since Tk isn't on the cobalts??? 
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
+from matplotlib import ticker #used for log-scale contourplots 
+
 from cross_section_test import get_diff_flux
 import os
 import nuSQUIDSpy as nsq
 import sys
 
-const = nsq.Const()
+if len(sys.argv)==1:
+    mode = 0
+else:
+    if sys.argv[1] in ['0']:
+        mode=0
+    elif sys.argv[1] in ['1']:
+        mode=1
+    elif sys.argv[1] in ['2']:
+        mode=2
+    else:
+        #default mode
+        mode=0
+'''
+Modes
+    0 - plot muon vs not muon (normed)
+    1 - plot all the keys (normed)
+    2 - plot 2D hist of parent vs cascade 
+'''
+print("In mode {}".format(mode))
 
+const = nsq.Const()
 # colormap thing
 cmap = plt.get_cmap('viridis')
 n_colors = 6
@@ -149,7 +172,6 @@ for flav in flavors:
 def get_flux( energy, key, use_overflow = False):
     '''
     interpolates between entries in the flux dictionary to return the flux at arbitrary energy
-    interpolation done in log-space of energy! 
 
 
     returns DOUBLE  (0.0 if beyond scope of data)
@@ -162,29 +184,29 @@ def get_flux( energy, key, use_overflow = False):
     
 
     # check if it's outside the extents
-    if energy < energies[0]:
+    if energy < 10**energies[0]:
         if use_overflow:
-            return(energies[0])
+            return(10**energies[0])
         else:
             return(0)
-    if energy > energies[-1]:
+    if energy > 10**energies[-1]:
         if use_overflow:
-            return(energies[n_energies - 1])
+            return(10**energies[n_energies - 1])
         else:
             return(0)
     
     # should execute in O(N) time 
     upper_boundary = 1
-    while energy>energies[upper_boundary]:
+    while energy>(10**energies[upper_boundary]):
         upper_boundary += 1
     lower_boundary = upper_boundary - 1
 
     # sanity check... 
     # essentially makes sure that the energies are monotonically increasing 
-    if not ((energies[lower_boundary] <= energy) and (energies[upper_boundary] >= energy)):
+    if not ((10**energies[lower_boundary] <= energy) and (10**energies[upper_boundary] >= energy)):
         print("energy: {}".format(energy))
-        print("lower bound: {}".format(energies[lower_boundary]))
-        print("upper bound: {}".format(energies[upper_boundary]))
+        print("lower bound: {}".format(10**energies[lower_boundary]))
+        print("upper bound: {}".format(10**energies[upper_boundary]))
         print("indices: {}, {}".format(lower_boundary, upper_boundary))
         raise Exception()
 
@@ -192,8 +214,8 @@ def get_flux( energy, key, use_overflow = False):
     # linear in log-energy space 
     y2 = fluxes[key][upper_boundary]
     y1 = fluxes[key][lower_boundary]
-    x2 = energies[upper_boundary]
-    x1 = energies[lower_boundary]
+    x2 = 10**energies[upper_boundary]
+    x1 = 10**energies[lower_boundary]
     
     flux_value = energy*((y2-y1)/(x2-x1) ) + y2 -x2*((y2-y1)/(x2-x1))
     return(flux_value)
@@ -228,26 +250,33 @@ if casc_compare:
     plt.savefig('muon_not_muon.png', dpi=400)
 plt.clf()
 
+n_bins = 200
+def get_distribs_for_initial_energy(event, in_energies):
+    """
+    Returns an un-normalized dictionary of fluxes for each of the progenitor particles
 
-# now I'm trying tofix what the final state energy is, and look at the relative rates of initial neutrino energy that would give rise to this event 
-cool_plot = True
-if cool_plot:
+    Param "event" refers to the measured energy of the cascade in eV. 
+    Param "in_energies" is the list of possible progenitor neutrino energies to consider. in eV 
+    """
+    if not (isinstance(event, float) or isinstance(event,int)):
+        raise TypeError("Expected number-like, not {}".format(type(event)))
+    if not (isinstance(in_energies, list) or isinstance(in_energies, np.ndarray) or isinstance(in_energies, tuple)):
+        raise TypeError("Expected list-like, not {}".format(type(in_energies)))
+    rising = in_energies[1] > in_energies[0]
+
     CC_E_energy = 0.98 # ratio of energy recovered in a CC electron cascade
-    event = 100*const.GeV # observed energy of cascade 
     by_min = -5
     by_max = 0
-    n_bins = 200
-    # the initial neutrino energy we are considering
-    in_energies = np.array([event/(1.-y) for y in (1-np.logspace(by_min, by_max, n_bins))])
+    # the initial neutrino energy we are considering  -- commented since this is part of the func args now
+#    in_energies = np.array([event/(1.-y) for y in (1-np.logspace(by_min, by_max, n_bins))])
     widths = [0. for i in range(n_bins)]
     for i in range(n_bins):
         if i==0:
             widths[i]=abs(in_energies[1]-in_energies[0])/const.GeV
         else:
             widths[i]=abs(in_energies[i]-in_energies[i-1])/const.GeV
-    print("In Energy Increasing" if in_energies[1]>in_energies[0] else "In Energy Decreasing")
-    from_muon = np.array([ 0. for energy in range(n_bins) ])
-    from_not = np.array([ 0. for energy in range(n_bins) ])
+    #debug
+    #print("In Energy Increasing" if in_energies[1]>in_energies[0] else "In Energy Decreasing")
     from_diffy = {}
     for flav in flavors:
         for neut in neuts:
@@ -267,21 +296,39 @@ if cool_plot:
                     # and so get the total cross-section/flux from that energy and put it all in one bin
                     force_initial_energy = event/CC_E_energy 
                     from_diffy[key] = [0.0 for j in range(n_bins)]
-                    which_bin = n_bins - 1
+                    which_bin = 0 if rising else n_bins-1
                     while in_energies[which_bin]<force_initial_energy:
-                        which_bin-=1
-                    from_diffy[key][which_bin] = get_flux(np.log10(in_energies[which_bin]), key)*get_diff_flux(in_energies[which_bin], get_flavor(key), get_neut(key), get_curr(key))*widths[which_bin] 
+                        which_bin = which_bin+1 if rising else which_bin-1
+                        if (which_bin==n_bins or which_bin==-1):
+                            break                
+                    if (which_bin!=n_bins and which_bin>=0):
+                        from_diffy[key][which_bin] = get_flux(in_energies[which_bin], key)*get_diff_flux(in_energies[which_bin], get_flavor(key), get_neut(key), get_curr(key))*widths[which_bin] 
                 else:
-                    from_diffy[key] = [get_flux(np.log10(in_energies[j]), key)*get_diff_flux(in_energies[j], get_flavor(key), get_neut(key), get_curr(key),in_energies[j]-event,0.)*widths[j] for j in range(n_bins)]
-                # this evaluates in (N / GeV)
-                if curr=='NC' and flav=='Mu':
-                    from_muon += np.array(from_diffy[key])
-                else:
-                    from_not += np.array(from_diffy[key])
+                    from_diffy[key] = [get_flux(in_energies[j], key)*get_diff_flux(in_energies[j], get_flavor(key), get_neut(key), get_curr(key),in_energies[j]-event,0.)*widths[j] for j in range(n_bins)]
+    return(from_diffy, widths)
 
-    
-    isolation = False
-    if isolation:
+if mode==0 or mode==1:
+
+    e_min = 50*const.GeV
+    e_max = 1000*const.TeV
+    in_energies = np.logspace(np.log10(e_min), np.log10(e_max), n_bins)
+    # the initial neutrino energy we are considering
+
+    energy = 100*const.GeV
+    from_diffy, widths  = get_distribs_for_initial_energy(energy, in_energies)
+    from_muon = np.array([ 0. for energy in range(n_bins) ])
+    from_not = np.array([ 0. for energy in range(n_bins) ])
+    for flav in flavors:
+        for neut in neuts:
+            for curr in currents:
+                if (flav=='Mu' or flav=='Tau') and curr=='CC': # skip the tracks 
+                    continue 
+                key = flav+'_'+neut + '_'+curr
+                if curr=="NC" and flav=="Mu":
+                    from_muon += from_diffy[key]
+                else:
+                    from_not += from_diffy[key]
+    if mode==0:
         norm = sum(from_muon)+sum(from_not)
         # these are properly normalized so that you can integrate over part of the trend to get the probability the event was of that type 
         for i in range(n_bins):
@@ -291,7 +338,11 @@ if cool_plot:
 
         plt.plot(in_energies/const.GeV, from_muon, color=get_color(0,2),label="Muon Origin")
         plt.plot(in_energies/const.GeV, from_not, color=get_color(1,2),label="Other Origin")
-    else:
+        
+        print("Total Muon probability: {}".format( sum( from_muon*widths )))
+        print("Total Not Muon probability: {}".format(sum(from_not*widths)))
+
+    elif mode==1:
         norm = sum([ sum(from_diffy[key]) for key in from_diffy ])
         n_colors = len(list(from_diffy.keys()))
         counter = 0
@@ -302,8 +353,55 @@ if cool_plot:
 
     plt.xscale('log')
     plt.yscale('log')
-    plt.title("{:.2f}GeV Cascade Rates".format(event/const.GeV))
+    plt.title("{:.2f}GeV Cascade Rates".format(energy/const.GeV))
     plt.xlabel("Parent Neutrino Energy [GeV]")
     plt.ylabel(r"Probability [GeV$^{-1}$]")
     plt.legend()
     plt.savefig("wow.png",dpi=400)
+
+if mode==2:
+    e_min = 50*const.GeV
+    e_max = 100*const.TeV
+
+    these_energies = np.logspace(np.log10(e_min), np.log10(e_max), n_bins) 
+    parent_energies = np.logspace(np.log10(e_min), np.log10(e_max)+2,n_bins)
+    widths = np.zeros(n_bins)
+
+    #               [event energy] [parent energy]
+    muon_ones = np.zeros((n_bins, n_bins))
+    not_muon  = np.zeros((n_bins, n_bins))
+    for index in range(n_bins):
+        # let's populate those 2D lists
+        from_diffy, widths = get_distribs_for_initial_energy(these_energies[index], parent_energies)
+        for flav in flavors:
+            for neut in neuts:
+                for curr in currents:
+                    if (flav=='Mu' or flav=='Tau') and curr=='CC': # skip the tracks 
+                        continue 
+                    key = flav+'_'+neut + '_'+curr
+                    if curr=="NC" and flav=="Mu":
+                        muon_ones[index] += from_diffy[key]
+                    else:
+                        not_muon[index]  += from_diffy[key] 
+        norm = sum(muon_ones[index]) + sum(not_muon[index])
+        if norm!=0 and norm!=0.0:
+            for i in range(n_bins):
+                muon_ones[index][i] = muon_ones[index][i]/(widths[i]*norm)
+                not_muon[index][i] = not_muon[index][i]/(widths[i]*norm)
+
+    # so it doesn't scream about logged zeros 
+    muon_ones = np.ma.masked_where(muon_ones<=0, muon_ones)
+    not_muon  = np.ma.masked_where(not_muon<=0, not_muon)
+
+    plt.figure()
+    plt.contourf(parent_energies, these_energies, muon_ones, locator=ticker.LogLocator())
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.colorbar()
+    plt.savefig('muon_ones.png', dpi=400)
+    plt.clf()
+    plt.contourf(parent_energies, these_energies, not_muon, locator=ticker.LogLocator())
+    plt.colorbar()
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.savefig('not_muon.png', dpi=400)
