@@ -1,7 +1,8 @@
 /*
     Ben Smithers
     
-    This file will convolve fluxes with some cross sections and we'll see what we get
+    This file uses MCEQ to generate fluxes and nuSQUIDS to propagate them through the earth. 
+    Right now the MCEQ is handled by child processes running Python... because it works and it was easy.  
 
 */
 
@@ -23,13 +24,14 @@ const int energy_bins = 121;
 const double pi = 3.14159265359;
 
 // takes a string, returns a pointer to a length-4 array
-std::array<double, 4> parse( std::string line ){
-    std::array<double, 4> results = {0., 0., 0., 0.};
+const int columns = 7;
+std::array<double, columns> parse( std::string line ){
+    std::array<double, columns> results = {0., 0., 0., 0., 0., 0., 0.};
     int index = 0;
     
     std::string working = "";
     for (const char &c: line){
-        if (index>3){
+        if (index>=columns){
             std::cout << "Went too far??" <<std::endl;
         }
         if (c==' '){
@@ -52,13 +54,24 @@ std::array<double, 4> parse( std::string line ){
 // loads in data file and can 
 struct inter{
     
-
+    // energies [GeV]
     double energies[energy_bins] = {};
+    // fluxes [#/Gev/cm^2/sr]
+    // these should be replaced with a map std::string --> std:array<> 
     double nue_fluxes[energy_bins] ={};
     double numu_fluxes[energy_bins] = {};
     double nutau_fluxes[energy_bins] = {};
+    
+    double nue_bar_fluxes[energy_bins] ={};
+    double numu_bar_fluxes[energy_bins] = {};
+    double nutau_bar_fluxes[energy_bins] = {};
 
-    void load_data(std::string which){
+    void load_data(std::string which){  
+        /*
+            This function takes a filepath and loads the data from the file into this Object
+
+            It loads information about the Energies and all three fluxes! 
+        */
 
         std::string holder; // holds a string while interpreting it into floats and stuff
         std::ifstream target_data;
@@ -69,22 +82,30 @@ struct inter{
             if(holder[0]=='#'){
                 continue;
             }
-            std::array<double,4> values = parse( holder );
+            std::array<double,columns> values = parse( holder );
             energies[line] = values[0];
             nue_fluxes[line] = values[1];
             numu_fluxes[line] = values[2];
             nutau_fluxes[line] = values[3];
+            nue_bar_fluxes[line] = values[4];
+            numu_bar_fluxes[line] = values[5];
+            nutau_bar_fluxes[line] = values[6];           
             //std::cout << "Interpreted: "<<energies[line]<<", "<<nue_fluxes[line]<<", "<<numu_fluxes[line]<< ", " <<nutau_fluxes[line] << std::endl;
 
             line++; 
         }
     }
 
-    double get_flux(double energy, uint8_t flavor ){
+    double get_flux(double energy, uint8_t flavor,uint8_t nutype ){
         /*
             This returns the flux of the given flavor at desired energy
 
             It uses the loaded fluxes and linearly interpolates between the relevant points 
+            This kind of function was used so that the nusquids and mcewq binning could be different 
+
+            Maybe use an enum here... 
+            flavor = {0:electron, 1:muon, 2:tau}
+            nutype = {0:nu, 1:nubar}
          */
 
         // return 0 if outside the energy range! 
@@ -106,15 +127,26 @@ struct inter{
         double x1 = energies[lower_b];
 
         // access the relevant stored flux! 
-        if (flavor==0){
+        if (flavor==0 && nutype==0){
             y2 = nue_fluxes[upper_b];
             y1 = nue_fluxes[lower_b];
-        }else if(flavor==1){
+        }else if(flavor==1 && nutype==0){
             y2 = numu_fluxes[upper_b];
             y1 = numu_fluxes[lower_b];
-        }else if(flavor==2){
+        }else if(flavor==2 && nutype==0){
             y2 = nutau_fluxes[upper_b];
             y1 = nutau_fluxes[lower_b];
+        }else if (flavor==0 && nutype==1){
+            y2 = nue_bar_fluxes[upper_b];
+            y1 = nue_bar_fluxes[lower_b];
+        }else if(flavor==1 && nutype==1){
+            y2 = numu_bar_fluxes[upper_b];
+            y1 = numu_bar_fluxes[lower_b];
+        }else if(flavor==2 && nutype==1){
+            y2 = nutau_bar_fluxes[upper_b];
+            y1 = nutau_bar_fluxes[lower_b];
+        }else{
+            throw std::invalid_argument("");
         }
 
         // linear interpolation 
@@ -124,6 +156,7 @@ struct inter{
 };
 
 
+// This function isn't used anymore. It was used to dictate the overall flux before I switched to using MCEQ 
 double flux_function( double energy, double cos_zenith, uint8_t falvor){
     // energy should be in units of eV
     // cos_zenith should be, well, cos(zenith). 
@@ -158,7 +191,7 @@ int main(){
     inter FluxMachine; 
 
     // define some properties for our atmosphere 
-    double n_nu = 3;
+    long unsigned int n_nu = 3;
     double Emin = (1.e1)*un.GeV;
     double Emax = (1.e6)*un.GeV;
     double cos_zenith_min = -0.999;
@@ -188,21 +221,24 @@ int main(){
     std::fill( inistate.begin(), inistate.end(), 0);
     for ( int angle_bin=0; angle_bin < angular_bins; angle_bin++){
         // load next angle file  
+        // we turn this around since the nusquids zenith angle is different from the MCEQ one 
         double angle_deg = 180.-(acos(zeniths[angle_bin])*180./pi);
         if (angle_deg > 180.){
             angle_deg = 180.;
         }
         std::string command("python mceq_flux.py ");
-        command += std::to_string(angle_deg);
+        command += std::to_string(angle_deg); // append the zenith angle to the end of this as an argument to the python script 
         std::cout << " ===> Generating new flux file at "<<angle_deg<<std::endl;
         system(command.c_str()); // call the python script to generate the flux
         FluxMachine.load_data("temp_mceq_flux.dat"); // load the flux in 
         std::cout << " ===> Assigning initial state " <<std::endl;
         std::cout << std::endl;
         for (int energy_bin=0; energy_bin < energy_bins; energy_bin++){
-            for (int neut_type =0; neut_type<2; neut_type++){
-                for (int flavor=0; flavor < n_nu; flavor++){
-                    inistate[angle_bin][energy_bin][neut_type][flavor] = 0.5*FluxMachine.get_flux( (1.e-9)*(energies[energy_bin]), flavor);
+            for (uint8_t neut_type =0; neut_type<2; neut_type++){
+                for (uint8_t flavor=0; flavor < n_nu; flavor++){
+                    // this is halved because MCEQ doesn't distinguish between nu and nubar
+                    // WAIT IT DOES OH I GOTTA FIX THIS! 
+                    inistate[angle_bin][energy_bin][neut_type][flavor] = FluxMachine.get_flux( (1.e-9)*(energies[energy_bin]), flavor, neut_type);
                 }
             }
         }

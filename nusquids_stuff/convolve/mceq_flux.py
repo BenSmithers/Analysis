@@ -29,17 +29,17 @@ def get_angle_flux( angle , mag=1):
 
     flux['e_grid'] = mceq.e_grid
 
-    flux['nue_flux'] = (mceq.get_solution('nue',mag)+
-                 mceq.get_solution('antinue',mag))
-    flux['numu_flux'] = (mceq.get_solution('numu',mag)+
-                 mceq.get_solution('antinumu',mag))
-    flux['nutau_flux'] = (mceq.get_solution('nutau',mag)+
-                 mceq.get_solution('antinutau',mag))
+    flux['nue_flux'] = mceq.get_solution('nue',mag)
+    flux['nue_bar_flux'] = mceq.get_solution('antinue',mag)
+    flux['numu_flux'] = mceq.get_solution('numu',mag)
+    flux['numu_bar_flux'] = mceq.get_solution('antinumu',mag)
+    flux['nutau_flux'] = mceq.get_solution('nutau',mag)
+    flux['nutau_bar_flux'] = mceq.get_solution('antinutau',mag)
     
 
 
     obj = open("temp_mceq_flux.dat".format(angle),'w')
-#     obj.write("# E[Gev] Phi_nue[Gev/cm2/s/sr] Phi_numu[Gev/cm2/s/sr] Phi_nutau[Gev/cm2/s/sr]\n")
+#     obj.write("# E[Gev] Phi_nue[Gev/cm2/s/sr] Phi_numu[Gev/cm2/s/sr] Phi_nutau[Gev/cm2/s/sr] Phi_nue_bar Phi_numu_bar Phi_nutau_bar\n")
     for i in range(len(flux['e_grid'])):
         obj.write( str(flux['e_grid'][i]) )
         obj.write(' ')
@@ -48,6 +48,12 @@ def get_angle_flux( angle , mag=1):
         obj.write( str(flux['numu_flux'][i] ))
         obj.write(' ')
         obj.write( str(flux['nutau_flux'][i] ))
+        obj.write(' ')
+        obj.write( str(flux['nue_bar_flux'][i] ))
+        obj.write(' ')
+        obj.write( str(flux['numu_bar_flux'][i] ))
+        obj.write(' ')
+        obj.write( str(flux['nutau_bar_flux'][i] ))
         obj.write('\n')
     obj.close()
 
