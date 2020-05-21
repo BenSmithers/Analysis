@@ -10,6 +10,7 @@ import matplotlib
 # Need to use agg since Tk isn't on the cobalts??? 
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 from matplotlib import ticker #used for log-scale contourplots 
 
 from cross_section_test import get_diff_flux
@@ -26,6 +27,10 @@ else:
         mode=1
     elif sys.argv[1] in ['2']:
         mode=2
+        do_norm=True
+    elif sys.argv[1] in ['3']:
+        mode=2
+        do_norm=False
     else:
         #default mode
         mode=0
@@ -39,7 +44,7 @@ print("In mode {}".format(mode))
 
 const = nsq.Const()
 # colormap thing
-cmap = plt.get_cmap('viridis')
+cmap = plt.get_cmap('coolwarm')
 n_colors = 6
 def get_color(which, how_many=n_colors):
     return( cmap( float(which)/how_many ) )
@@ -134,12 +139,10 @@ class Data:
 
         # this funnny indexing is a result of the way I output the data from nuSQuIDS
         # it loops through energies for each angle
-        print("Building Energy and Angle Arrays")
+        print("Building Flux and Energy Arrays")
         self.energies = [data[i][0] for i in range(n_energies)]
-        if self.energies[1]>self.energies[0]:
-            print("growing")
-        else:
-            print("decreasing")
+        self.growing = self.energies[1]>self.energies[0]
+        print("Growing" if self.growing else "Decreasing")
         en_width = [0. for i in range(n_energies)]
         for i in range(n_energies):
             if i==0:
@@ -357,6 +360,7 @@ if mode==0 or mode==1:
     plt.savefig("wow.png",dpi=400)
 
 if mode==2:
+    print("Calculating E_i Distributions")
     e_min = 50*const.GeV
     e_max = 100*const.TeV
 
@@ -380,25 +384,40 @@ if mode==2:
                         muon_ones[index] += from_diffy[key]
                     else:
                         not_muon[index]  += from_diffy[key] 
-        norm = sum(muon_ones[index]) + sum(not_muon[index])
+        if do_norm:  
+            norm = sum(muon_ones[index]) + sum(not_muon[index])
+        else:
+            norm = 1.
         if norm!=0 and norm!=0.0:
             for i in range(n_bins):
                 muon_ones[index][i] = muon_ones[index][i]/(widths[i]*norm)
                 not_muon[index][i] = not_muon[index][i]/(widths[i]*norm)
 
+    
+    print("Plotting")
     # so it doesn't scream about logged zeros 
     muon_ones = np.ma.masked_where(muon_ones<=0, muon_ones)
     not_muon  = np.ma.masked_where(not_muon<=0, not_muon)
-
+    levels = np.logspace(-5,0,8) if do_norm else np.logspace(-60,-38, 8)
+    
+    # evt /s /cm2 /GeV /sr 
     plt.figure()
-    plt.contourf(parent_energies, these_energies, muon_ones, locator=ticker.LogLocator())
+    cf = plt.contourf(parent_energies/const.GeV, these_energies/const.GeV, muon_ones,cmap=cm.coolwarm, locator=ticker.LogLocator(), levels=levels)
     plt.xscale('log')
     plt.yscale('log')
-    plt.colorbar()
+    plt.xlabel('Parent Energy [GeV]', size=14)
+    plt.ylabel('Cascade Energy [GeV]', size=14)
+    plt.grid(which='major',alpha=0.7)
+    cbar = plt.colorbar(cf,ticks=ticker.LogLocator())
+    cbar.set_label(r"$dN/(dE_{f}dE_{i})$ [s$^{-1}$GeV$^{-2}$]")
     plt.savefig('muon_ones.png', dpi=400)
     plt.clf()
-    plt.contourf(parent_energies, these_energies, not_muon, locator=ticker.LogLocator())
-    plt.colorbar()
+    cf = plt.contourf(parent_energies/const.GeV, these_energies/const.GeV, not_muon,cmap=cm.coolwarm, locator=ticker.LogLocator(), levels=levels)
+    cbar = plt.colorbar(cf,ticks=ticker.LogLocator())
+    cbar.set_label(r"$dN/(dE_{f}dE_{i})$ [s$^{-1}$GeV$^{-2}$]")
+    plt.grid(which='major',alpha=0.7)
     plt.xscale('log')
     plt.yscale('log')
+    plt.xlabel('Parent Energy [GeV]', size=14)
+    plt.ylabel('Cascade Energy [GeV]', size=14)
     plt.savefig('not_muon.png', dpi=400)

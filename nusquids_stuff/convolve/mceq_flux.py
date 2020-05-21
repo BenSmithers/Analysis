@@ -5,7 +5,7 @@ import time
 import numpy as np
 import sys
 
-def get_angle_flux( angle , mag=1):
+def get_angle_flux( angle , mag=0):
     """
     angle should be in degrees! 
     
