@@ -3,9 +3,58 @@
 This script plots the fluxes output by the convolve cpp script
 '''
 
+from optparse import OptionParser
+import sys
+
+parser = OptionParser()
+mode_str = "0 - plot muon vs not muon\n1 - plot all the keys\n 2 - plot 2D hist of parent vs cascade"
+parser.add_option("-m", "--mode",
+                dest="mode",
+                default=0,
+                type=int,
+                help=mode_str)
+parser.add_option("-n", "--norm",
+                dest="norm",
+                default=False,
+                action="store_true",
+                help="Should it be normed? Flag for True")
+parser.add_option("-l", "--load_stored",
+                dest="load_stored",
+                default=False,
+                action="store_true",
+                help="Should I try to load stored data rather than regenerate it?")
+options, args = parser.parse_args()
+mode = options.mode
+do_norm = options.norm
+load_stored = options.load_stored
+
+recognized_modes = [0,1,2,3]
+if mode not in recognized_modes:
+    raise ValueError("Unrecognized Mode: {}".format(mode))
+
+if mode==3:
+    mode = 2
+    do_norm = False
+'''
+Modes
+    0 - plot muon vs not muon (normed)
+    1 - plot all the keys (normed)
+    2 - plot 2D hist of parent vs cascade 
+'''
+
+print("Configuration...")
+print("    In Mode {}".format(mode))
+print("    Will Normalize" if do_norm else "    No Norm - true fluxes")
+print("    Will Load Data" if load_stored else "    Will Generate Data")
+
+# data analysis
 import numpy as np
 
+# file system, control
+import os
+import pickle
 
+#plotting imports
 import matplotlib
 # Need to use agg since Tk isn't on the cobalts??? 
 matplotlib.use('agg')
@@ -14,33 +63,8 @@ import matplotlib.cm as cm
 from matplotlib import ticker #used for log-scale contourplots 
 
 from cross_section_test import get_diff_flux
-import os
 import nuSQUIDSpy as nsq
-import sys
 
-if len(sys.argv)==1:
-    mode = 0
-else:
-    if sys.argv[1] in ['0']:
-        mode=0
-    elif sys.argv[1] in ['1']:
-        mode=1
-    elif sys.argv[1] in ['2']:
-        mode=2
-        do_norm=True
-    elif sys.argv[1] in ['3']:
-        mode=2
-        do_norm=False
-    else:
-        #default mode
-        mode=0
-'''
-Modes
-    0 - plot muon vs not muon (normed)
-    1 - plot all the keys (normed)
-    2 - plot 2D hist of parent vs cascade 
-'''
-print("In mode {}".format(mode))
 
 const = nsq.Const()
 # colormap thing
@@ -359,7 +383,39 @@ if mode==0 or mode==1:
     plt.legend()
     plt.savefig("wow.png",dpi=400)
 
-if mode==2:
+savefile = ".analysis_level.dat"
+def _load_data():
+    """
+    Loads the datafile. Returns tuple
+
+    0 - parent energies
+    1 - child energies
+    3 - muon cascade flux (DD)
+    4 - not muon cascade flux (DD)
+    """
+    print("Loading Data")
+    f = open(savefile, 'rb')
+    all_data = pickle.load(f)
+    f.close()
+    return( all_data["parent_energies"], all_data["child_energies"], \
+                all_data["muon_ones"], all_data["not_muon"] )
+    
+def _save_data(parent_energies, child_energies, muon_ones, not_muon):
+    """
+    Saves the generated data for use later. 
+    """
+    all_data = {"parent_energies": parent_energies, 
+                    "child_energies": child_energies, 
+                    "muon_ones": muon_ones, 
+                    "not_muon": not_muon}
+    f = open(savefile,'wb')
+    pickle.dump( all_data, f, -1)
+    f.close()    
+
+def generate_mode2_data():
+    """
+    Generates the data for mode 2
+    """
     print("Calculating E_i Distributions")
     e_min = 50*const.GeV
     e_max = 100*const.TeV
@@ -393,7 +449,15 @@ if mode==2:
                 muon_ones[index][i] = muon_ones[index][i]/(widths[i]*norm)
                 not_muon[index][i] = not_muon[index][i]/(widths[i]*norm)
 
-    
+    _save_data(parent_energies, these_energies, muon_ones, not_muon)
+    return( parent_energies, these_energies, muon_ones, not_muon )
+
+if mode==2:
+    if load_stored and os.path.exists(savefile):
+        parent_energies, these_energies, muon_ones, not_muon = _load_data()
+    else:
+        parent_energies, these_energies, muon_ones, not_muon = generate_mode2_data()
+
     print("Plotting")
     # so it doesn't scream about logged zeros 
     muon_ones = np.ma.masked_where(muon_ones<=0, muon_ones)
