@@ -28,13 +28,15 @@ mode = options.mode
 do_norm = options.norm
 load_stored = options.load_stored
 
-recognized_modes = [0,1,2,3,4]
+recognized_modes = [0,1,2,3,4,5]
 if mode not in recognized_modes:
     raise ValueError("Unrecognized Mode: {}".format(mode))
 
 if mode==3:
     mode = 2
     do_norm = False
+if mode==5:
+    do_norm = True
 '''
 Modes
     0 - plot muon vs not muon (normed)
@@ -65,6 +67,8 @@ from matplotlib import ticker #used for log-scale contourplots
 from cross_section_test import get_diff_flux
 import nuSQUIDSpy as nsq
 
+# specialty-made utility functions
+from utils import get_flavor, get_neut, get_curr, get_exp_std, get_width
 
 const = nsq.Const()
 # colormap thing
@@ -72,58 +76,6 @@ cmap = plt.get_cmap('coolwarm')
 n_colors = 6
 def get_color(which, how_many=n_colors):
     return( cmap( float(which)/how_many ) )
-
-
-# define a couple utility functions
-def get_flavor( key ):
-    '''
-    take a flux dictionary key and return the nusquids flavor type
-    
-    The dictionary key will be like "electorn_stuff_stuff"
-    '''
-    if not isinstance(key, str):
-        raise TypeError("Expected {}, got {}".format(str, type(key)))
-
-    part = key.split('_')[0].lower()
-    if part in ['e', 'eleectron']:
-        return( nsq.NeutrinoCrossSections_NeutrinoFlavor.electron )
-    elif part in ['mu', 'muon']:
-        return( nsq.NeutrinoCrossSections_NeutrinoFlavor.muon )
-    elif part in ['tau']:
-        return( nsq.NeutrinoCrossSections_NeutrinoFlavor.tau )
-    else:
-        raise ValueError("Not sure how to work with {}, extracted from {}".format(part, key))
-
-def get_neut( key ):
-    '''
-    Takes a flux dictionary key and returns the nusquids neutrino type 
-    (anti neutrino or vanilla neutrino)
-    '''
-    if not isinstance(key, str):
-        raise TypeError("Expected {}, got {}".format(str, type(key)))   
-    part = key.split('_')[1].lower()
-
-    if part in ['nu', 'matter','neutrino']:
-        return(nsq.NeutrinoCrossSections_NeutrinoType.neutrino)
-    elif part in ['nubar', 'antimatter', 'antineutrino']:
-        return(nsq.NeutrinoCrossSections_NeutrinoType.antineutrino)
-    else:
-        raise ValueError("Not sure how to work with {}, extracted from {}".format(part, key))
-
-def get_curr(key):
-    '''
-    Takes a flux dictionary key and returns the nusquids neutrino type 
-    '''
-    if not isinstance(key, str):
-        raise TypeError("Expected {}, got {}".format(str, type(key)))   
-    part = key.split('_')[2].lower()
-
-    if part in ['neutral', 'nc']:
-        return(nsq.NeutrinoCrossSections_Current.NC)
-    elif part in ['charged', 'cc']:
-        return(nsq.NeutrinoCrossSections_Current.CC)
-    else:
-        raise ValueError("Not sure how to work with {}, extracted from {}".format(part, key))
 
 flavors = ['E', 'Mu', 'Tau']
 neuts = ['nu', 'nuBar']
@@ -486,7 +438,7 @@ if mode==2 or mode==4:
         plt.xlabel('Parent Energy [GeV]', size=14)
         plt.ylabel('Cascade Energy [GeV]', size=14)
         plt.savefig('not_muon.png', dpi=400)
-    else: #mode==4
+    elif mode==4:
         levels = np.logspace(-2,2,20)
         plt.figure()
         cf = plt.contourf(parent_energies/const.GeV, these_energies/const.GeV, muon_ones/not_muon,cmap=cm.coolwarm, locator=ticker.LogLocator(), levels=levels)
@@ -498,3 +450,20 @@ if mode==2 or mode==4:
         cbar = plt.colorbar(cf,ticks=ticker.LogLocator())
         cbar.set_label("Muon Rate / Not Muon Rate")
         plt.savefig('ratio_plot.png', dpi=400) 
+if mode==5
+    widths = np.zeros(n_bins)
+    if load_stored and os.path.exists(savefile):
+        parent_energies, these_energies, muon_ones, not_muon = _load_data()
+    else:
+        parent_energies, these_energies, muon_ones, not_muon = generate_mode2_data()
+    
+    #normally, the outermost index refers to a primary particle energy
+    # so we transpose the 2D density arrays
+    muon_ones = np.transpose(muon_ones)
+    not_muon = np.transpose(not_muon)
+
+    muon_expectation = [[0.,0.,0.] for j in range(n_bins)]
+    nute_expectation = [[0.,0.,0.] for j in range(n_bins)]
+    for index in range(n_bins):
+        pass
+
