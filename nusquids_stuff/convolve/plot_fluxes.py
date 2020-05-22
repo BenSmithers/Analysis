@@ -28,7 +28,7 @@ mode = options.mode
 do_norm = options.norm
 load_stored = options.load_stored
 
-recognized_modes = [0,1,2,3]
+recognized_modes = [0,1,2,3,4]
 if mode not in recognized_modes:
     raise ValueError("Unrecognized Mode: {}".format(mode))
 
@@ -340,8 +340,8 @@ if mode==0 or mode==1:
 
     energy = 100*const.GeV
     from_diffy, widths  = get_distribs_for_initial_energy(energy, in_energies)
-    from_muon = np.array([ 0. for energy in range(n_bins) ])
-    from_not = np.array([ 0. for energy in range(n_bins) ])
+    from_muon = np.array([ 0. for ienergy in range(n_bins) ])
+    from_not = np.array([ 0. for ienergy in range(n_bins) ])
     for flav in flavors:
         for neut in neuts:
             for curr in currents:
@@ -452,7 +452,7 @@ def generate_mode2_data():
     _save_data(parent_energies, these_energies, muon_ones, not_muon)
     return( parent_energies, these_energies, muon_ones, not_muon )
 
-if mode==2:
+if mode==2 or mode==4:
     if load_stored and os.path.exists(savefile):
         parent_energies, these_energies, muon_ones, not_muon = _load_data()
     else:
@@ -464,24 +464,37 @@ if mode==2:
     not_muon  = np.ma.masked_where(not_muon<=0, not_muon)
     levels = np.logspace(-5,0,8) if do_norm else np.logspace(-60,-38, 8)
     
-    # evt /s /cm2 /GeV /sr 
-    plt.figure()
-    cf = plt.contourf(parent_energies/const.GeV, these_energies/const.GeV, muon_ones,cmap=cm.coolwarm, locator=ticker.LogLocator(), levels=levels)
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.xlabel('Parent Energy [GeV]', size=14)
-    plt.ylabel('Cascade Energy [GeV]', size=14)
-    plt.grid(which='major',alpha=0.7)
-    cbar = plt.colorbar(cf,ticks=ticker.LogLocator())
-    cbar.set_label(r"$dN/(dE_{f}dE_{i})$ [s$^{-1}$GeV$^{-2}$]")
-    plt.savefig('muon_ones.png', dpi=400)
-    plt.clf()
-    cf = plt.contourf(parent_energies/const.GeV, these_energies/const.GeV, not_muon,cmap=cm.coolwarm, locator=ticker.LogLocator(), levels=levels)
-    cbar = plt.colorbar(cf,ticks=ticker.LogLocator())
-    cbar.set_label(r"$dN/(dE_{f}dE_{i})$ [s$^{-1}$GeV$^{-2}$]")
-    plt.grid(which='major',alpha=0.7)
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.xlabel('Parent Energy [GeV]', size=14)
-    plt.ylabel('Cascade Energy [GeV]', size=14)
-    plt.savefig('not_muon.png', dpi=400)
+    if mode==2:
+        # evt /s /cm2 /GeV /sr 
+        plt.figure()
+        cf = plt.contourf(parent_energies/const.GeV, these_energies/const.GeV, muon_ones,cmap=cm.coolwarm, locator=ticker.LogLocator(), levels=levels)
+        plt.xscale('log')
+        plt.yscale('log')
+        plt.xlabel('Parent Energy [GeV]', size=14)
+        plt.ylabel('Cascade Energy [GeV]', size=14)
+        plt.grid(which='major',alpha=0.7)
+        cbar = plt.colorbar(cf,ticks=ticker.LogLocator())
+        cbar.set_label(r"$dN/(dE_{f}dE_{i})$ [s$^{-1}$GeV$^{-2}$]")
+        plt.savefig('muon_ones.png', dpi=400)
+        plt.clf()
+        cf = plt.contourf(parent_energies/const.GeV, these_energies/const.GeV, not_muon,cmap=cm.coolwarm, locator=ticker.LogLocator(), levels=levels)
+        cbar = plt.colorbar(cf,ticks=ticker.LogLocator())
+        cbar.set_label(r"$dN/(dE_{f}dE_{i})$ [s$^{-1}$GeV$^{-2}$]")
+        plt.grid(which='major',alpha=0.7)
+        plt.xscale('log')
+        plt.yscale('log')
+        plt.xlabel('Parent Energy [GeV]', size=14)
+        plt.ylabel('Cascade Energy [GeV]', size=14)
+        plt.savefig('not_muon.png', dpi=400)
+    else: #mode==4
+        levels = np.logspace(-2,2,20)
+        plt.figure()
+        cf = plt.contourf(parent_energies/const.GeV, these_energies/const.GeV, muon_ones/not_muon,cmap=cm.coolwarm, locator=ticker.LogLocator(), levels=levels)
+        plt.xscale('log')
+        plt.yscale('log')
+        plt.xlabel('Parent Energy [GeV]', size=14)
+        plt.ylabel('Cascade Energy [GeV]', size=14)
+        plt.grid(which='major',alpha=0.7)
+        cbar = plt.colorbar(cf,ticks=ticker.LogLocator())
+        cbar.set_label("Muon Rate / Not Muon Rate")
+        plt.savefig('ratio_plot.png', dpi=400) 
