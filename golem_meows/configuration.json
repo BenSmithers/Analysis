@@ -79,6 +79,29 @@
         "kaonLosses": 0.
     },
     "fitflags": {
-        "use_domeff": false
+        "domEfficiency": false,
+        "holeiceForward": false,
+        "convNorm":false,
+        "CRDeltaGamma": false,
+        "piKRatio": false,
+        "NeutrinoAntineutrinoRatio": false,
+        "zenithCorrection": false,
+        "hqdomEfficiency": false,
+        "barrHM": false,
+        "barrHP": false,
+        "barrWM": false,
+        "barrWP": false,
+        "barrYM": false,
+        "barrYP": false,
+        "barrZM": false,
+        "barrZP": false,
+        "icegrad0": false,
+        "icegrad1": false,
+        "promptNorm": true,
+        "astroNorm": false,
+        "astroDeltaGamma": false,
+        "nuxs": false,
+        "nubarxs": false,
+        "kaonLosses": false
     }
 }
