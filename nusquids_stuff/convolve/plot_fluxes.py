@@ -28,7 +28,7 @@ mode = options.mode
 do_norm = options.norm
 load_stored = options.load_stored
 
-recognized_modes = [0,1,2,3,4,5]
+recognized_modes = [0,1,2,3,4,5,6]
 if mode not in recognized_modes:
     raise ValueError("Unrecognized Mode: {}".format(mode))
 
@@ -37,11 +37,16 @@ if mode==3:
     do_norm = False
 if mode==5:
     do_norm = True
+if mode==6:
+    do_norm = False
 '''
 Modes
     0 - plot muon vs not muon (normed)
     1 - plot all the keys (normed)
     2 - plot 2D hist of parent vs cascade 
+    4 - PLOT 2d HIST OF parent vs cascade, doubly differential
+    5 - The plot showing most probable energy for muon events and non-muon events 
+    6 - The plot just showing must probable energy for all of them
 '''
 
 print("Configuration...")
@@ -248,13 +253,7 @@ def get_distribs_for_initial_energy(event, in_energies):
     by_min = -5
     by_max = 0
     # the initial neutrino energy we are considering  -- commented since this is part of the func args now
-#    in_energies = np.array([event/(1.-y) for y in (1-np.logspace(by_min, by_max, n_bins))])
-    widths = [0. for i in range(n_bins)]
-    for i in range(n_bins):
-        if i==0:
-            widths[i]=abs(in_energies[1]-in_energies[0])/const.GeV
-        else:
-            widths[i]=abs(in_energies[i]-in_energies[i-1])/const.GeV
+    widths = get_width(in_energies)/const.GeV
     #debug
     #print("In Energy Increasing" if in_energies[1]>in_energies[0] else "In Energy Decreasing")
     from_diffy = {}
@@ -370,9 +369,9 @@ def generate_mode2_data():
     """
     print("Calculating E_i Distributions")
     e_min = 50*const.GeV
-    e_max = 100*const.TeV
+    e_max = 10*const.PeV
 
-    these_energies = np.logspace(np.log10(e_min), np.log10(e_max), n_bins) 
+    these_energies = np.logspace(np.log10(e_min), np.log10(e_max), n_bins)  # cascade energy 
     parent_energies = np.logspace(np.log10(e_min), np.log10(e_max)+2,n_bins)
     widths = np.zeros(n_bins)
 
@@ -450,20 +449,106 @@ if mode==2 or mode==4:
         cbar = plt.colorbar(cf,ticks=ticker.LogLocator())
         cbar.set_label("Muon Rate / Not Muon Rate")
         plt.savefig('ratio_plot.png', dpi=400) 
-if mode==5
-    widths = np.zeros(n_bins)
+if mode==5:
     if load_stored and os.path.exists(savefile):
         parent_energies, these_energies, muon_ones, not_muon = _load_data()
     else:
         parent_energies, these_energies, muon_ones, not_muon = generate_mode2_data()
-    
-    #normally, the outermost index refers to a primary particle energy
-    # so we transpose the 2D density arrays
-    muon_ones = np.transpose(muon_ones)
-    not_muon = np.transpose(not_muon)
+   
+    cascade_widths = get_width(these_energies)/const.GeV
+    parent_widths = get_width(parent_energies)/const.GeV
 
-    muon_expectation = [[0.,0.,0.] for j in range(n_bins)]
-    nute_expectation = [[0.,0.,0.] for j in range(n_bins)]
+    # outer index is cascade energy, inner index is primary particle energy 
+    #muon_ones = np.transpose(muon_ones)
+    #not_muon = np.transpose(not_muon)
+
+    # the [outer_index] refers to an observed cascade energy
+    # the [inner_inde] corresponds to (lower_extent_error, mean, upper_extent_error)
+    muon_expectation = np.array([(0.,0.,0.) for j in range(n_bins)])
+    nute_expectation = np.array([(0.,0.,0.) for j in range(n_bins)])
+    p_muon = np.zeros(n_bins)
+    for index in range(n_bins): # iterate over the 
+        scale = cascade_widths[index]
+        mean, sigma_up, sigma_down = get_exp_std( parent_widths, muon_ones[index], parent_energies/const.GeV)
+        muon_expectation[index] = (scale*sigma_down, scale*mean, scale*sigma_up)
+        
+        mean, sigma_up, sigma_down = get_exp_std( parent_widths, not_muon[index], parent_energies/const.GeV)
+        nute_expectation[index] = (scale*sigma_down, scale*mean, scale*sigma_up)
+
+        p_muon[index] = sum(muon_ones[index]*parent_widths)/( sum(muon_ones[index]*parent_widths) + sum(not_muon[index]*parent_widths))
+        
+    figs,axes = plt.subplots(nrows=2, ncols=1, sharex=True, gridspec_kw={'height_ratios':[3,1]})
+
+    # we need to transpose the expectations for ease of plotting 
+    muon_expectation = np.transpose(muon_expectation)
+    nute_expectation = np.transpose(nute_expectation)
+
+
+    axes[0].fill_between( these_energies/const.GeV, muon_expectation[1]-muon_expectation[0], muon_expectation[1]+muon_expectation[2], color='#5f97c7',alpha=0.2)
+    axes[0].fill_between( these_energies/const.GeV, nute_expectation[1]-nute_expectation[0], nute_expectation[1]+nute_expectation[2], color='#b31007', alpha=0.2)
+    axes[0].plot( these_energies/const.GeV, muon_expectation[1], drawstyle='steps', label="Muon Origin", color='#5f97c7')
+    axes[0].plot( these_energies/const.GeV, nute_expectation[1], drawstyle='steps', label="Not Muon", color='#b31007')
+    axes[1].plot(these_energies/const.GeV, p_muon)
+    
+    axes[0].set_xlim([5e1, 10**7])
+    axes[1].set_xlim([5e1, 10**7])
+    axes[0].set_ylim([10**1, 10**12])
+    axes[1].set_ylim([1e-4,1])
+    axes[0].grid('major', alpha=0.5 )
+    axes[0].legend()
+
+    axes[0].set_yscale('log')
+    axes[0].set_xscale('log')
+    axes[1].set_xscale('log')
+
+    axes[1].set_xlabel("Cascade Energy [GeV]")
+    axes[0].set_ylabel("Likely Parent Neutrino Energy [GeV]")
+    axes[1].set_ylabel("Probability Muon")
+    plt.savefig("probable_energy.png", dpi=400)
+
+if mode==6:
+    if load_stored and os.path.exists(savefile):
+        parent_energies, these_energies, muon_ones, not_muon = _load_data()
+    else:
+        parent_energies, these_energies, muon_ones, not_muon = generate_mode2_data()
+  
+    cascade_widths = get_width(these_energies)/const.GeV
+    parent_widths = get_width(parent_energies)/const.GeV
+
+    expectation = np.array([ np.array([0.,0.,0.]) for j in range(n_bins)])
+    p_muon = np.zeros(n_bins)
     for index in range(n_bins):
-        pass
+        norm = sum(muon_ones[index]*parent_widths) + sum(not_muon[index]*parent_widths)
+        mean, sigma_up, sigma_down = get_exp_std( parent_widths, muon_ones[index], parent_energies/const.GeV)        
+        expectation[index] += np.array([sigma_down, mean, sigma_up])*cascade_widths[index]*sum(muon_ones[index]*parent_widths)/norm
+
+        mean, sigma_up, sigma_down = get_exp_std( parent_widths, not_muon[index], parent_energies/const.GeV)
+        expectation[index] += np.array([sigma_down, mean, sigma_up])*cascade_widths[index]*sum(not_muon[index]*parent_widths)/norm
+
+        p_muon[index] = sum(muon_ones[index]*parent_widths)/( sum(muon_ones[index]*parent_widths) + sum(not_muon[index]*parent_widths))
+
+    figs,axes = plt.subplots(nrows=2, ncols=1, sharex=True, gridspec_kw={'height_ratios':[3,1]})
+
+    # we need to transpose the expectations for ease of plotting 
+    expectation = np.transpose(expectation)
+
+    axes[0].fill_between( these_energies/const.GeV, expectation[1]-expectation[0], expectation[1]+expectation[2], color='#5f97c7',alpha=0.2)
+    axes[0].plot( these_energies/const.GeV, expectation[1], drawstyle='steps', label="Predicted Energy", color='#5f97c7')
+    axes[1].plot(these_energies/const.GeV, p_muon)
+    
+    axes[0].set_xlim([5e1, 10**7])
+    axes[1].set_xlim([5e1, 10**7])
+    axes[0].set_ylim([10**1, 10**12])
+    axes[1].set_ylim([1e-4,1])
+    axes[0].grid('major', alpha=0.5 )
+    axes[0].legend()
+
+    axes[0].set_yscale('log')
+    axes[0].set_xscale('log')
+    axes[1].set_xscale('log')
+
+    axes[1].set_xlabel("Cascade Energy [GeV]")
+    axes[0].set_ylabel("Likely Event Energy [GeV]")
+    axes[1].set_ylabel("Probability Muon")
+    plt.savefig("predicted_event_E.png", dpi=400)
 

@@ -16,7 +16,7 @@ def get_width( which_list ):
 
     Arg 'which_list' must be monotonically increasing or decreasing
     """
-    if not (isinstance(which_list, list) or isinstance(np.ndarray) or isinstance(np.ndarray)):
+    if not (isinstance(which_list, list) or isinstance(which_list, np.ndarray) or isinstance(which_list, tuple)):
         raise TypeError("Expected list-like, got {}".format(type(which_list)))
 
     # cast as a list
@@ -25,7 +25,8 @@ def get_width( which_list ):
     else:
         use = which_list
 
-    if len(which_list)<=1:
+    n_bins = len(which_list)
+    if n_bins<=1:
         raise ValueError("'which_list' should be longer than length {}".format(len(which_list)))
 
     increasing = which_list[1] > which_list[0]
@@ -42,7 +43,7 @@ def get_width( which_list ):
             widths[i] = abs(use[-1]-use[-2])
         else:
             widths[i] = abs(0.5*(use[i+1]-use[i-1]))
-    return(widths)
+    return(np.array(widths))
 
 def get_exp_std( widths, probabilities, values ):
     """
@@ -58,7 +59,7 @@ def get_exp_std( widths, probabilities, values ):
     if not (len(widths)==len(values) or len(values)==len(prob_density)):
         raise ValueError("The args should have the same lengths")
 
-    norm = sum(probabilities)
+    norm = sum(probabilities*widths)
     prob_density = [ value/norm for value in probabilities]
 
     mean=0.
