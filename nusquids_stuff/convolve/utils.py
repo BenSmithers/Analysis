@@ -56,7 +56,7 @@ def get_exp_std( widths, probabilities, values ):
 
     RETURNS; means, y+ error, y- error 
     """
-    if not (len(widths)==len(values) or len(values)==len(prob_density)):
+    if not (len(widths)==len(values) and len(values)==len(probabilities)):
         raise ValueError("The args should have the same lengths")
 
     norm = sum(probabilities*widths)
