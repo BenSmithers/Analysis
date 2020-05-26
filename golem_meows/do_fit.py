@@ -1,12 +1,11 @@
 import GolemFitPy as gf # central fit utility
 
 import json # used to load in a defaults file 
-import os 
+import os # used to load in the configuration file
 
 import numpy as np
-from warnings import warn
 
-# bring in a utility function for parsing the phase points 
+# bring in several utility funtions 
 from utils import parse_point, check_configuration, converter, get_seed, set_GF
 
 '''
@@ -14,15 +13,8 @@ Ben Smithers
 benjamin.smithers@mavs.uta.edu
 
 The script does the fit. Hence the name. DO FIT. It DOES THE FIT. 
-NAMES FOR ANALYSIS SCRIPTS ARE NOT SUPPOSED TO BE ARTSY OR INTERPRETIVE
-THEY ARE DESCRIPTIVE
-THEY DESCRIBE THE FUNCTIONALITY
-YOU NAME THEM WHAT THEY DO
-THIS ONE DOES THE FIT
-ITS NAME IS "DO FIT" BECAUSE IT DO FIT. 
-IT'S NOT ROCKET SCIENCE. 
 
-This script loads in a json file to configurea GolemFit Fit process.
+This script loads in a json file to configure a GolemFit Fit process.
 A Realization file must be provided! 
 
 This script passes a number of flags, priors, and various other parameters to a GolemFit object.
@@ -71,6 +63,7 @@ set_GF(fitparams, fit_config)
 set_GF(steering_params, steering_config)
 set_GF(fitparams_flag, flags_config)
 set_GF(priors, priors_config)
+set_GF(npp, parse_point(point))
 
 # Set seeds 
 

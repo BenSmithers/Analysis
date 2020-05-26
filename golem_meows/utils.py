@@ -26,17 +26,21 @@ def parse_point( this_point ):
     if not is_valid_point(this_point):
         raise ValueError("{} is not a valid point".format(this_point))
     broken = this_point.split("_")
+   
+    bsm_params = {}
+    bsm_params['index']   = float(broken[0])
+    bsm_params['dm14sq']     = float(broken[1])
+    bsm_params['th14'] = float(broken[2])
+    bsm_params['th24'] = float(broken[3])
+    bsm_params['th34'] = float(broken[4])
+    bsm_params['del4'] = float(broken[5])
+    bsm_params['del24'] = float(broken[6])
     
+    # this function isn't really used anymore
     def round_string(number):
         return("{:.4f}".format(np.round(float(number),4)))
 
-    dm2 = round_string(broken[1])
-    th24= float(broken[3])
-    s2t = "{:.4f}".format(np.sin(2*th24)**2)
-    th34= round_string(broken[4])
-    Uu4sq= np.sin(th24)**2
-    Ut4sq= (np.cos(th24)**2)*(np.sin(float(th34))**2)
-    return( Uu4sq, Ut4sq )
+    return( bsm_params )
 
 def is_valid_point(this_point):
     """
@@ -94,9 +98,8 @@ def converter():
     From Brazil.py
 
     I have Earthly clue what this does, why it's used, or what it takes. It just seemed important. 
-    I'll add more comments here once I decipher the purpose of this arcane bullshit.
 
-    Is this just some stupid container for a few arrays? Why not just use a dictionary??
+    Is this just some container for a few arrays? Why not just use a dictionary??
     """
     def __init__(self, golemSpit):
         self.MuExEnergy = np.asarray(golemSpit[:,0]) #?????
