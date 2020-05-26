@@ -8,6 +8,7 @@
         "realization":"/data/ana/SterileNeutrino/IC86/HighEnergy/Analysis/scripts/jobs/Data/Data_IC86.Fake_cut_everything_platinum_LT_240747841.npz",
         "datapath": "/data/ana/SterileNeutrino/IC86/HighEnergy/Analysis/scripts/jobs/Resources/GolemFit/",
         "fluxdir": "/data/ana/SterileNeutrino/IC86/HighEnergy/Analysis/Fluxes/Flux_AIRS_sib_HG_th24_dm2/",
+        "outdir":"/data/user/bsmithers/runs/",
         "point": "0_0.000000_0.000000_0.000000_0.000000_0.000000_0.000000"
     },
     "steering_options"{
@@ -103,5 +104,18 @@
         "nuxs": false,
         "nubarxs": false,
         "kaonLosses": false
+    },
+    "priors":{
+        "convNormCenter": 1.,
+        "convNormWidth": 0.4,
+        "astro1Comp2DNormCenter": 4.72/6.0,
+        "astro1Comp2DNormWidth":0.36,
+        "promptNormCenter":1.,
+        "crSlopeWidth":0.03,
+        "domEffWidth":0.123,
+        "nubarXSCenter":1,
+        "nubarXSWidth":0.075,
+        "nuXSCenter":1,
+        "nuXSWidth":0.03
     }
 }

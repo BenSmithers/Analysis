@@ -7,16 +7,28 @@ import numpy as np
 from warnings import warn
 
 # bring in a utility function for parsing the phase points 
-from utils import parse_point, check_configuration
+from utils import parse_point, check_configuration, converter, get_seed, set_GF
 
 '''
 Ben Smithers
 benjamin.smithers@mavs.uta.edu
 
+The script does the fit. Hence the name. DO FIT. It DOES THE FIT. 
+NAMES FOR ANALYSIS SCRIPTS ARE NOT SUPPOSED TO BE ARTSY OR INTERPRETIVE
+THEY ARE DESCRIPTIVE
+THEY DESCRIBE THE FUNCTIONALITY
+YOU NAME THEM WHAT THEY DO
+THIS ONE DOES THE FIT
+ITS NAME IS "DO FIT" BECAUSE IT DO FIT. 
+IT'S NOT ROCKET SCIENCE. 
+
 This script loads in a json file to configurea GolemFit Fit process.
 A Realization file must be provided! 
 
-It doesn't do anything yet, it's under active development 
+This script passes a number of flags, priors, and various other parameters to a GolemFit object.
+It then does a LLH minimization with GF.
+
+Then it outputs a set of parameters from the fit to a json file.
 '''
 
 
@@ -28,12 +40,13 @@ f.close()
 
 # load in configuration data
 run_options= config['run_options']
-check_configuration(run_options) # make sure there aren't any glaring errors
-#       before wasting the user's time 
+# verify that these run options are valid before doing any heavy lifting
+check_configuration(run_options)
 fit_config = config['central_values']
 steering_config = config['steering_options']
 parameters = config['parameters']
 flags_config = config['fitflags']
+priors_config = config['priors'
 
 # contruct GF objects
 datapaths = gf.Datapaths(run_options['datapath'])
@@ -53,26 +66,13 @@ datapaths.prompt_nusquids_atmospheric_file          = prompt_file
 datapaths.astro_nusquids_file                       = astro_file
 datapaths.barr_resources_location           = fluxdir
 
-# Add configuration to GF objects 
-for param in fit_config.keys():
-    if not hasattr(fitparams, param)
-        warn("fitparams doesn't have a parameter {}, but I tried setting it.".format(param))
-    setattr(fitparams, param, fit_config[param]) 
+# This Loads the parameters from the json file and injects them into the GF objects 
+set_GF(fitparams, fit_config)
+set_GF(steering_params, steering_config)
+set_GF(fitparams_flag, flags_config)
+set_GF(priors, priors_config)
 
-
-for param in steering_config.keys():
-    if not hasattr(steering_params, param):
-        warn("steering params doesn't have a parameter {}, but I tried setting it".format(param))
-    setattr(steering_params, param, steering_config[param])
-
-for param in flags_config.keys():
-    if not hasattr(fitparams_flag, param):
-        warn("Fit Parameters Flag object doesn't have parameter {}, but I tried setting it".format(param))
-    setattr(fitparams_flag, param, flags_config[param])
-
-# set priors 
-
-# set seeds 
+# Set seeds 
 
 golemfit = gf.GolemFit(datapaths, steering_params, npp)
 golemfit.SetFitParametersFlag(fitparams_flag)
@@ -80,5 +80,30 @@ golemfit.SetFitParametersPriors(priors)
 
 
 realization_dist = np.load(run_options['realization'])['realization']
+golemfit.Swallow(realization_dist)
+
+# Minimize to the fit
+min_llh = golemfit.MinLLH()
+# what we want from the fit: 
+fit_keys = ["likelihood", "convNorm", "CRDeltaGamma", "piKRatio", \
+        "NeutrinoAntineutrinoRatio", "domEfficiency","holeiceForward"\
+        "zenithCorrection","hqdomEfficiency","barrHM","barrHP","barrWM"\
+        "barrWP","barrYM","barrYP","barrZM","barrZP","icegrad0","icegrad1"\
+        "promptNorm","astroNorm","astroDeltaGamma","nuxs","nubarxs","kaonLosses"]
+
+for key in fit_keys:
+    print("{}: {}".format(key, getattr(min_llh.params, key)))
+
+fit = golemfit.GetExpectation(min_llh.params)[0][0][0] #?????
+fit_sum = sum(fit)
+
+output_dict = {}
+
+output_dict['fit_params'] = {}
+for key in fit_keys:
+    output_dict['fit_params'][key] = getattr(min_llh.params,key)
 
 
+target_file = os.path.join(run_options['outdir'],"GF_fit_" ,run_options['point'], ".json")
+with open(target_file,'w') as f:
+    json.dump(output_dict, f)
