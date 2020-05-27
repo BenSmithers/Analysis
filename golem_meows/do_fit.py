@@ -38,7 +38,7 @@ fit_config = config['central_values']
 steering_config = config['steering_options']
 parameters = config['parameters']
 flags_config = config['fitflags']
-priors_config = config['priors'
+priors_config = config['priors']
 
 # contruct GF objects
 datapaths = gf.Datapaths(run_options['datapath'])
@@ -66,6 +66,21 @@ set_GF(priors, priors_config)
 set_GF(npp, parse_point(point))
 
 # Set seeds 
+
+# set special settings
+def steer():
+    """
+    This sets up special settings for the steering parameters that aren't caught by the 
+        universal json applicator (set_GF)
+    """
+    steering_params.fullLivetime = {0: float(parameters['years'])*365*24*60*60}
+    steering_params.sterile_model_label = point
+    steering_params.spline_dom_efficiency = bool(parameters['systematics'][0])
+    steering_params.spline_hole_ice = bool(parameters['systematics'][1])
+    steering_params.load_atmospheric_density_spline = bool(parameters['systematics'][6])
+    steering_params.spline_hqdom_efficiency = bool(parameters['systematics'][7])
+    steering_params.load_barr_gradients = '1' in parameters['barr']
+    steering_params.use_ice_gradients = '1' in parameters['multisim']
 
 golemfit = gf.GolemFit(datapaths, steering_params, npp)
 golemfit.SetFitParametersFlag(fitparams_flag)
