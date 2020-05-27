@@ -34,7 +34,7 @@ xs_obj = nsq.NeutrinoDISCrossSectionsFromTables()
 
 
 
-def get_diff_flux( energy, flavor, neutrino, current, e_out=None, x=None):
+def get_diff_xs( energy, flavor, neutrino, current, e_out=None, x=None):
     """
     This function is just a wrapper to the nusquids function to make sure I get my types right.... 
     """
@@ -57,7 +57,7 @@ def get_diff_flux( energy, flavor, neutrino, current, e_out=None, x=None):
         return(xs_obj.SingleDifferentialCrossSection( energy, e_out, flavor, neutrino, current))
 
 def get_total_flux( energy, flavor, neutrino, current):
-    return(get_diff_flux(energy, flavor, neutrino, current))
+    return(get_diff_xs(energy, flavor, neutrino, current))
 
 
 # I don't want to totally remove this code, but I don't want it called as I import some of the funcitons above
@@ -103,7 +103,7 @@ if not skip_plots:
     by_min = -5
     by_max = 0
     in_energies = np.array([recon_energy/(1.-y) for y in (1-np.logspace(by_min, by_max, nBins))])
-    diff_xs = [get_diff_flux(energy, flavors['muon'],neut_types['neutrino'],currents['NC'],recon_energy,0.) for energy in in_energies ]
+    diff_xs = [get_diff_xs(energy, flavors['muon'],neut_types['neutrino'],currents['NC'],recon_energy,0.) for energy in in_energies ]
 
     plt.plot(in_energies/constants.GeV, diff_xs)
     plt.xscale('log')
