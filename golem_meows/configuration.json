@@ -22,7 +22,7 @@
         "cosThbinWidth":0.05,
         "use_single_conventional_atmospheric_neutrino_file":true,
         "use_precalculated_nusquids_fluxes":true,
-        "evalThreats":1,
+        "evalThreads":1,
         "quiet":false,
         "fastmode_scaling": 2.00,
         "fastmode":false,
