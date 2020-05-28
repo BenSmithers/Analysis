@@ -1,6 +1,51 @@
 import numpy as np
 import os
 
+
+def implicit_convert( what ):
+    """
+    When data is loaded from the json file, it sometimes has weird datatypes. 
+    Like, you don't have strings, you have Unicode representations. 
+    This function takes a some data (like a dict or otherwise) and tries to convert it.
+    If it encounters a dict, it recursively converts the thing 
+
+    @param 'what' - dict OR other
+
+    returns: dict OR other. Depends on what was passed originally. 
+
+    Note: this function will fail on any dicts more than 99 levels deeps. This shouldn't happen.
+    If you encounter this problem... **what are you doing???**
+    """
+    
+    if isinstance(what, dict):
+        new_dict = {}
+        for key in what.keys():
+            new_dict[key] = implicit_convert(what[key])
+
+        return(new_dict)
+    else:
+        # basically it'll either be a float, string, or bool
+        as_str = str(what).lower()
+        if (as_str=='true' or as_str=='false'):
+            return(bool(as_str))
+
+        try:
+            # check - does casting this as an int result in a loss of precision?
+            # if not, keep this as an int
+            assert(1==1.) # if this ever changes I want to know...
+            as_int   = int(what)
+            as_float = float(what)
+            if as_int==as_float:
+                return(as_int)
+            else:
+                return(as_float)
+
+        except ValueError:
+            return(str(what))
+        except TypeError:
+            return(str(what))
+
+
 def set_GF(obj, config_dict):
     """
     Sets the GF object 'obj' with parameters described in the 'config_dict' dictionary 
@@ -15,7 +60,7 @@ def set_GF(obj, config_dict):
 
     for key in config_dict.keys():
         if not hasattr(obj, key):
-            raise KeyError("Object 'obj' has not key {}!".format(key))
+            raise KeyError("Object 'obj' has not key '{}'!".format(key))
         setattr(obj, key, config_dict[key])
     
 def parse_point( this_point ):
@@ -25,15 +70,16 @@ def parse_point( this_point ):
     """
     if not is_valid_point(this_point):
         raise ValueError("{} is not a valid point".format(this_point))
-    broken = this_point.split("_")
+    broken = this_point.split("_") # the point is loaded in as a unicode representaion.
+    #           need to do a quick conversion 
    
     bsm_params = {}
-    bsm_params['index']   = float(broken[0])
-    bsm_params['dm14sq']     = float(broken[1])
+    bsm_params['index']   = int(broken[0])
+    bsm_params['dm41sq']     = float(broken[1])
     bsm_params['th14'] = float(broken[2])
     bsm_params['th24'] = float(broken[3])
     bsm_params['th34'] = float(broken[4])
-    bsm_params['del4'] = float(broken[5])
+    bsm_params['del14'] = float(broken[5])
     bsm_params['del24'] = float(broken[6])
     
     # this function isn't really used anymore
@@ -50,14 +96,16 @@ def is_valid_point(this_point):
         heavy lifting! 
     """
     if not isinstance(this_point, str):
-        return(False)
+        print("Point not a string! It's a {}. Trying to convert...".format(type(this_point)))
     broken = this_point.split("_")
     if not (len(broken)==7):
+        print("Too " + ("many" if len(broken)>7 else "few") + " components in point!")
         return(False)
     for number in broken:
         try:
             x = float(number)
         except ValueError:
+            print("Failed to cast {} as number".format(number))
             return(False)
     return(True)
     

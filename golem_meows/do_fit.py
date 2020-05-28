@@ -6,7 +6,7 @@ import os # used to load in the configuration file
 import numpy as np
 
 # bring in several utility funtions 
-from utils import parse_point, check_configuration, converter, get_seed, set_GF
+from utils import parse_point, check_configuration, converter, get_seed, set_GF, implicit_convert
 
 '''
 Ben Smithers
@@ -31,17 +31,19 @@ config = json.load(f)
 f.close()
 
 # load in configuration data
-run_options= config['run_options']
+# do the implicit conversion to make sure all the strings are strings! 
+run_options= implicit_convert(config['run_options'])
 # verify that these run options are valid before doing any heavy lifting
 check_configuration(run_options)
-fit_config = config['central_values']
-steering_config = config['steering_options']
-parameters = config['parameters']
-flags_config = config['fitflags']
-priors_config = config['priors']
+
+fit_config      = implicit_convert(config['central_values'])
+steering_config = implicit_convert(config['steering_options'])
+parameters      = implicit_convert(config['parameters'])
+flags_config    = implicit_convert(config['fitflags'])
+priors_config   = implicit_convert(config['priors'])
 
 # contruct GF objects
-datapaths = gf.Datapaths(run_options['datapath'])
+datapaths = gf.DataPaths(run_options['datapath'])
 npp      = gf.NewPhysicsParams()
 fitparams = gf.FitParameters(gf.sampleTag.Sterile)
 steering_params = gf.SteeringParams(gf.sampleTag.Sterile)
@@ -54,9 +56,9 @@ prompt_file = run_options['fluxdir']+'/prompt_atmospheric_'+point+'.hdf5'
 astro_file  = run_options['fluxdir']+'/astro_'+point+'.hdf5'
 conv_file   = run_options['fluxdir']+'/atmospheric_'+point+'.hdf5'
 datapaths.conventional_nusquids_atmospheric_file = conv_file
-datapaths.prompt_nusquids_atmospheric_file          = prompt_file
-datapaths.astro_nusquids_file                       = astro_file
-datapaths.barr_resources_location           = fluxdir
+datapaths.prompt_nusquids_atmospheric_file       = prompt_file
+datapaths.astro_nusquids_file                    = astro_file
+datapaths.barr_resources_location               = run_options['fluxdir']
 
 # This Loads the parameters from the json file and injects them into the GF objects 
 set_GF(fitparams, fit_config)
