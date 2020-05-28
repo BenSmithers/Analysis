@@ -55,6 +55,13 @@ point = run_options['point']
 prompt_file = run_options['fluxdir']+'/prompt_atmospheric_'+point+'.hdf5'
 astro_file  = run_options['fluxdir']+'/astro_'+point+'.hdf5'
 conv_file   = run_options['fluxdir']+'/atmospheric_'+point+'.hdf5'
+#fastMC_location = '/data/ana/SterileNeutrino/IC86/HighEnergy/Analysis/scripts/jobs/FastMC/'+ sim+'_'+fast_scaling+'_'+years+'_'+fluxdir.split('/')[-2]+'/'+ point+'/'
+
+compact_file_path = '/data/ana/SterileNeutrino/IC86/HighEnergy/Analysis/scripts/jobs/FastMC/' + \
+        steering_config['simToLoad'] +'_' + "{:.2f}".format(steering_config['fastmode_scaling']) +'_' + \
+        str(parameters['years']) + '_' +run_options['fluxdir'].split('/')[-2] + \
+        '/' + run_options['point'] + '/'
+datapaths.compact_file_path = compact_file_path 
 datapaths.conventional_nusquids_atmospheric_file = conv_file
 datapaths.prompt_nusquids_atmospheric_file       = prompt_file
 datapaths.astro_nusquids_file                    = astro_file
@@ -83,6 +90,8 @@ def steer():
     steering_params.spline_hqdom_efficiency = bool(parameters['systematics'][7])
     steering_params.load_barr_gradients = '1' in parameters['barr']
     steering_params.use_ice_gradients = '1' in parameters['multisim']
+
+steer()
 
 golemfit = gf.GolemFit(datapaths, steering_params, npp)
 golemfit.SetFitParametersFlag(fitparams_flag)

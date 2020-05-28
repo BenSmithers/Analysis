@@ -28,6 +28,16 @@ def implicit_convert( what ):
         as_str = str(what).lower()
         if (as_str=='true' or as_str=='false'):
             return(bool(as_str))
+        
+        # check if it's one of those 0 and 1 strings
+        is_weird = True
+        for letter in as_str:
+            if not (letter=='0' or letter=='1'):
+                is_weird = False
+                break
+        if is_weird:
+            if len(as_str)>1:
+                return(str(what))
 
         try:
             # check - does casting this as an int result in a loss of precision?

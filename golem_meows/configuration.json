@@ -6,7 +6,7 @@
     },
     "run_options":{
         "realization":"/data/ana/SterileNeutrino/IC86/HighEnergy/Analysis/scripts/jobs/Data/Data_IC86.Fake_cut_everything_platinum_LT_240747841.npz",
-        "datapath": "/data/ana/SterileNeutrino/IC86/HighEnergy/Analysis/scripts/jobs/Resources/GolemFit/",
+        "datapath": "/data/user/bsmithers/GolemFit/sources/GolemFit/",
         "fluxdir": "/data/ana/SterileNeutrino/IC86/HighEnergy/Analysis/Fluxes/Flux_AIRS_sib_HG_th24_dm2/",
         "outdir":"/data/user/bsmithers/runs/",
         "point": "0_0.000000_0.000000_0.000000_0.000000_0.000000_0.000000"
@@ -26,7 +26,7 @@
         "quiet":false,
         "fastmode_scaling": 2.00,
         "fastmode":false,
-        "readCompact": false
+        "readCompact": true
     },
     "parameters": {
         "ebin": 0.1,
