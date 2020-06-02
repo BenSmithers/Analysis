@@ -12,7 +12,7 @@ I moved this over here so the main plotter wasn't too busy
 def get_width( which_list ):
     """
     Takes a list 'which_list' of floats of length N, considered the centers of some bins
-    Returns a length N list of floats for the widths of the bins these centers correspond to
+    Returns a length N numpy array of floats for the widths of the bins these centers correspond to
 
     Arg 'which_list' must be monotonically increasing or decreasing
     """
