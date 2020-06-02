@@ -103,6 +103,8 @@ struct inter{
             It uses the loaded fluxes and linearly interpolates between the relevant points 
             This kind of function was used so that the nusquids and mcewq binning could be different 
 
+            Energy shoudl be in GeV
+
             Maybe use an enum here... 
             flavor = {0:electron, 1:muon, 2:tau}
             nutype = {0:nu, 1:nubar}
@@ -192,8 +194,8 @@ int main(){
 
     // define some properties for our atmosphere 
     long unsigned int n_nu = 3;
-    double Emin = (1.e1)*un.GeV;
-    double Emax = (1.e7)*un.GeV;
+    double Emin = 10*un.GeV;
+    double Emax = 10*un.PeV;
     double cos_zenith_min = -0.999;
     double cos_zenith_max = 0.;
 
@@ -236,9 +238,7 @@ int main(){
         for (int energy_bin=0; energy_bin < energy_bins; energy_bin++){
             for (uint8_t neut_type =0; neut_type<2; neut_type++){
                 for (uint8_t flavor=0; flavor < n_nu; flavor++){
-                    // this is halved because MCEQ doesn't distinguish between nu and nubar
-                    // WAIT IT DOES OH I GOTTA FIX THIS! 
-                    inistate[angle_bin][energy_bin][neut_type][flavor] = FluxMachine.get_flux( (1.e-9)*(energies[energy_bin]), flavor, neut_type);
+                    inistate[angle_bin][energy_bin][neut_type][flavor] = FluxMachine.get_flux(energies[energy_bin]/un.GeV, flavor, neut_type);
                 }
             }
         }
@@ -273,25 +273,11 @@ int main(){
 
             // write the neutrino contributions to the flux
             for( int flavor=0; flavor<n_nu; flavor++){
-                if (flavor==1){
-                    scale=2.;
-                }else if(flavor==0){
-                    scale=1.;
-                }else{
-                    scale=0.;
-                }
-                file << " " << scale*nus_atm.EvalFlavor( flavor, angle, reg_energy, 0);
+                file << " " << nus_atm.EvalFlavor( flavor, angle, reg_energy, 0);
             }
             // and now do it for anti-neutrinos 
             for( int flavor=0; flavor<n_nu; flavor++){
-                if (flavor==1){
-                    scale=2.;
-                }else if(flavor==0){
-                    scale=1.;
-                }else{
-                    scale=0.;
-                }
-                file << " " << scale*nus_atm.EvalFlavor( flavor, angle, reg_energy, 1);
+                file << " " << nus_atm.EvalFlavor( flavor, angle, reg_energy, 1);
             }
             file << std::endl;
         }
