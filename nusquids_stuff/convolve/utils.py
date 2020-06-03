@@ -56,23 +56,50 @@ def get_exp_std( widths, probabilities, values ):
 
     RETURNS; means, y+ error, y- error 
     """
+    sigma = 0.5+0.341
+
     if not (len(widths)==len(values) and len(values)==len(probabilities)):
         raise ValueError("The args should have the same lengths")
 
     norm = sum(probabilities*widths)
     prob_density = [ value/norm for value in probabilities]
 
+    if not all(value>=0. for value in prob_density):
+        raise ValueError("Encountered negative probability in provided density!")
+
     mean=0.
     for item in range(len(widths)):
         # P(x)*X
         mean+= (widths[item]*prob_density[item])*values[item]
+
+    median_bin = 0
+    acc_prob = 0.
+    while acc_prob<0.5:
+        acc_prob+= widths[median_bin]*prob_density[median_bin]
+        median_bin+=1
+    median = values[median_bin]
+
+    # get upper bound
+    upper_bin = median_bin +1
+    upper_b = acc_prob
+    while upper_b < sigma:
+        upper_b += widths[upper_bin]*prob_density[upper_bin]
+        upper_bin += 1
+    sigma_plus = values[upper_bin] - median
+
+    lower_bin = median_bin -1
+    lower_b = acc_prob
+    while lower_b > (sigma - 0.5):
+        lower_b -= widths[lower_bin]*prob_density[lower_bin]
+        lower_bin-=1
+    sigma_minus = median - values[lower_bin]
 
     var=0.
     for item in range(len(widths)):
         var+= (widths[item]*prob_density[item])*(mean-values[item])**2
     sigma = sqrt(var)
 
-    return( mean, sigma, sigma)
+    return( median, sigma_plus, sigma_minus)
 
 # define a couple utility functions
 def get_flavor( key ):
