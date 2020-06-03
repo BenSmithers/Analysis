@@ -212,6 +212,13 @@ int main(){
     std::cout << "Done building nuSQUids object" << std::endl; 
     
     //nus_atm.Set_CPPhase(1,2,-1.89); // sticking in the SK result
+    nus_atm.Set_MixingAngle(0,1,0.563942);
+    nus_atm.Set_MixingAngle(0,2,0.154085);
+    nus_atm.Set_MixingAngle(1,2,0.785398);
+
+    nus_atm.Set_SquareMassDifference(1,7.65e-05);
+    nus_atm.Set_SquareMassDifference(2,0.00247);
+
 
     // settting some zenith angle stuff 
     nus_atm.Set_rel_error(1.0e-6);
