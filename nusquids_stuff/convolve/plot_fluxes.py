@@ -486,7 +486,7 @@ def swap_to_cascade(flux, lepton_energies, event_energies, key):
     Then it swaps it around to be doubly differential in cascade and event energies 
     """
     # we want this to follow the same trend 
-    cascade_energies = [i for i in lepton_energies]
+    cascade_energies = np.array([i for i in lepton_energies])
     flav = key.split('_')[0]
     curr = key.split('_')[2]
     cce_eff = 0.98
@@ -498,41 +498,27 @@ def swap_to_cascade(flux, lepton_energies, event_energies, key):
         """
         Returns the appropriate bin for a provided cascade energy 
         """
-        altmode = True
-        if altmode:
-            min_diff = None
-            minbin = None
-            for i in range(len(cascade_energies)):
-                if min_diff is None:
+        min_diff = None
+        minbin = None
+        for i in range(len(cascade_energies)):
+            if min_diff is None:
+                min_diff = abs(energy-cascade_energies[i])
+                minbin = i
+            else:
+                if min_diff > abs(energy-cascade_energies[i]):
                     min_diff = abs(energy-cascade_energies[i])
                     minbin = i
                 else:
-                    if min_diff > abs(energy-cascade_energies[i]):
-                        min_diff = abs(energy-cascade_energies[i])
-                        minbin = i
-                    else:
-                        return(i)
-            return(i)
-        else:
-            increasing = cascade_energies[0] < cascade_energies[1]
-            index = 0 if increasing else len(cascade_energies)-1
-            while energy > cascade_energies[index]:
-                index = index+1 if increasing else index-1
-                if increasing:
-                    if index==len(cascade_energies):
-                        break
-                else:
-                    if index==-1:
-                        break
-            return(index)
+                    return(i)
+        return(i)
 
     lepton_widths = get_width(lepton_energies)/const.GeV
     cascade_widths = get_width(cascade_energies)/const.GeV
 
     for lep_bin in range(len(lepton_energies)):
         for evt_bin in range(len(event_energies)):
-            if lepton_energies[lep_bin] > event_energies[evt_bin]:
-                continue #forbidden! 
+            #if lepton_energies[lep_bin] > event_energies[evt_bin]:
+            #    continue #forbidden! 
             if curr=='CC':
                 if flav=="E":
                     index = get_cascade_bin(event_energies[evt_bin]*cce_eff)
@@ -588,9 +574,13 @@ def mode8(n_bins=200):
 if mode==8:
     n_bins = 10
     event_energies, cascade_energies, from_muon, from_not = mode8(n_bins)
+    
+    from_muon = np.ma.masked_where(from_muon<=0, from_muon)
+    from_not  = np.ma.masked_where(from_not<=0, from_not)
 
     plt.figure()
-    levels = np.logspace(-60,-40,10)
+    levels = np.logspace(-65,-45,10)
+    print("Max of muon: {}".format(np.min(from_muon)))
     cf = plt.contourf(event_energies/const.GeV, cascade_energies/const.GeV, from_muon,cmap=cm.coolwarm, locator=ticker.LogLocator(), levels=levels)
     plt.xscale('log')
     plt.yscale('log')
@@ -712,7 +702,7 @@ if mode==5:
     axes[1].set_xscale('log')
 
     axes[1].set_xlabel("Cascade Energy [GeV]")
-    axes[0].set_ylabel("Likely Event Energy [GeV]")
+    axes[0].set_ylabel("Median Event Energy [GeV]")
     axes[1].set_ylabel("Probability Muon")
     print("saving probable_energy.png")
     plt.savefig("probable_energy.png", dpi=400)
@@ -751,7 +741,7 @@ if mode==6:
     expectation = np.transpose(expectation)
 
     axes[0].fill_between( these_energies/const.GeV, expectation[1]-expectation[0], expectation[1]+expectation[2], color='#5f97c7',alpha=0.2)
-    axes[0].plot( these_energies/const.GeV, expectation[1], drawstyle='steps', label="Predicted Energy", color='#5f97c7')
+    axes[0].plot( these_energies/const.GeV, expectation[1], drawstyle='steps', color='#5f97c7')
     axes[1].plot(these_energies/const.GeV, p_muon)
     
     axes[0].set_xlim([5e1, 10**5])
@@ -766,7 +756,7 @@ if mode==6:
     axes[1].set_xscale('log')
 
     axes[1].set_xlabel("Cascade Energy [GeV]")
-    axes[0].set_ylabel("Likely Event Energy [GeV]")
+    axes[0].set_ylabel("Median Event Energy [GeV]")
     axes[1].set_ylabel("Probability Muon")
     print("saving predicted_energ_E.png")
     plt.savefig("predicted_event_E.png", dpi=400)
@@ -819,7 +809,7 @@ if mode==7:
     expectation = np.transpose(expectation)
 
     axes[0].fill_between( cascade_energies/const.GeV, expectation[1]-expectation[0], expectation[1]+expectation[2], color='#5f97c7',alpha=0.2)
-    axes[0].plot( cascade_energies/const.GeV, expectation[1], drawstyle='steps', label="Predicted Energy", color='#5f97c7')
+    axes[0].plot( cascade_energies/const.GeV, expectation[1], drawstyle='steps', color='#5f97c7')
     axes[1].plot(cascade_energies/const.GeV, p_muon)
 
     axes[1].grid('major', alpha=0.5)
@@ -834,7 +824,7 @@ if mode==7:
     axes[1].set_xscale('log')
 
     axes[1].set_xlabel("Cascade Energy [GeV]")
-    axes[0].set_ylabel("Likely Event Energy [GeV]")
+    axes[0].set_ylabel("Median Event Energy [GeV]")
     axes[1].set_ylabel("Probability Muon")
     print("saving predicted_event_E_two.png")
     plt.savefig("predicted_event_E_TWO.png", dpi=400)
