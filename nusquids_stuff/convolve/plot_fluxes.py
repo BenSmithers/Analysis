@@ -36,7 +36,7 @@ mode = options.mode
 do_norm = options.norm
 load_stored = options.load_stored
 
-recognized_modes = [0,1,2,3,4,5,6,7]
+recognized_modes = [0,1,2,3,4,5,6,7,-1,8]
 if mode not in recognized_modes:
     raise ValueError("Unrecognized Mode: {}".format(mode))
 
@@ -102,11 +102,11 @@ def get_index( key ):
     if not isinstance(key, str):
         raise TypeError("Expected {}, got {}".format(str, type(key)))
     split = key.split('_')
-    flavor = split[0]
+    flavor = split[0] # E Mu Tau
     variety = split[1] # nu or nu-bar 
 
-    flav_index = flavors.index(flavor)
-    variety_index = neuts.index(variety)
+    flav_index = flavors.index(flavor) # 0, 1, or 2
+    variety_index = neuts.index(variety) # 0 or 1
     return( 2 + int( flav_index + len(flavors)*variety_index) )
 
 class Data:
@@ -129,7 +129,7 @@ class Data:
         n_angles = 100
         assert( len(data) == (n_energies*n_angles))
 
-        # this funnny indexing is a result of the way I output the data from nuSQuIDS
+        # this funny indexing is a result of the way I output the data from nuSQuIDS
         # it loops through energies for each angle
         print("Building Flux and Energy Arrays")
         self.energies = [10**data[i][0] for i in range(n_energies)]
@@ -195,15 +195,15 @@ class Data:
             print("upper bound: {}".format(self.energies[upper_boundary]))
             print("indices: {}, {}".format(lower_boundary, upper_boundary))
             raise Exception()
-
-        # logarithmic interpolation
-        # linear in log-energy space 
+        
+        # linear interpolation 
         y2 = self.fluxes[key][upper_boundary]
         y1 = self.fluxes[key][lower_boundary]
         x2 = self.energies[upper_boundary]
         x1 = self.energies[lower_boundary]
-        
-        flux_value = energy*((y2-y1)/(x2-x1) ) + y2 -x2*((y2-y1)/(x2-x1))
+        slope = (y2-y1)/(x2-x1)
+
+        flux_value = energy*slope + y2 -x2*slope
         return(flux_value)
 
 data = Data()
@@ -212,49 +212,54 @@ scale_e = np.array(data.energies)
 
 # this block here is supposed to just plot all the raw fluxes 
 if debug:
-    it = 0
-    for key in data.fluxes:
-        plt.plot( scale_e, data.fluxes[key], color=get_color(it),label=key )
-        it+=1
-
-    plt.legend()
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.savefig('reallycool.png', dpi=400)
-    plt.clf()
+    binny = len(scale_e)
+    taus = np.zeros(binny)
+    muon = np.zeros(binny)
+    ele = np.zeros(binny)
     
-    plt.plot(scale_e, muon_ones, color=get_color(0,2), label="Muon Cascades")
-    plt.plot(scale_e, not_muon, color=get_color(1,2), label="Other Cascades")
+    for key in data.fluxes:
+        flav=str(key).split('_')[0]
+        if 'Tau'==flav:
+            taus+=data.fluxes[key]
+        elif "E"==flav:
+            ele+=data.fluxes[key]
+        elif "Mu"==flav:
+            muon+=data.fluxes[key]
+        else:
+            raise Exception("Ya Done goofed")
+
+
+    plt.plot( scale_e, muon, color=get_color(0,3),label="Muons")
+    plt.plot(scale_e, taus, color=get_color(1,3),label="Taus")
+    plt.plot(scale_e, ele, color=get_color(2,3), label="Electrons")
+    plt.legend()
     plt.xscale('log')
     plt.yscale('log')
-    plt.xlabel("Incoming Neut Energy [GeV]")
-    plt.title("Event Rate for atm flux 10GeV->1PeV")
-    plt.ylabel("Event Rate [s$^{-1}$]")
-    plt.legend()
-    plt.savefig('muon_not_muon.png', dpi=400)
-    plt.clf()
+    plt.savefig('raw fluxes.png', dpi=400)
+    print("saved raw fluxes")
+    plt.close()
 
-n_bins = 200
-def get_distribs_for_cascade_energy(event, event_widths, in_energies):
+n_bins = 400
+
+
+def get_distribs_for_cascade_energy(cascade_energy, event_widths, event_energies):
     """
     Returns an un-normalized dictionary of fluxes for each of the progenitor particles.
-    The thing returns in units of /GeV/s (energy of outgoing particle)
+    The thing returns in units of /GeV/s (energy of incoming particle)
 
-    Param "event" refers to the measured energy of the cascade in eV. FLOAT 
-    Param "event_width" refers to the width of the bin for the event's energy. Needed to properly scale rates. [GEV]
-    Param "in_energies" is the list of possible progenitor neutrino energies to consider. in eV. LIST
+    Param "cascade_energy" refers to the measured energy of the cascade in eV. FLOAT 
+    Param "event_width" refers to the width of the bin for the cascade_energy's energy. Needed to properly scale rates. [GEV]
+    Param "event_energies" is the list of possible progenitor neutrino energies to consider. in eV. LIST
     """
-    if not (isinstance(event, float) or isinstance(event,int)):
-        raise TypeError("Expected number-like, not {}".format(type(event)))
-    if not (isinstance(in_energies, list) or isinstance(in_energies, np.ndarray) or isinstance(in_energies, tuple)):
-        raise TypeError("Expected list-like, not {}".format(type(in_energies)))
-    rising = in_energies[1] > in_energies[0]
-
+    if not (isinstance(cascade_energy, float) or isinstance(cascade_energy,int)):
+        raise TypeError("Expected number-like, not {}".format(type(cascade_energy)))
+    if not (isinstance(event_energies, list) or isinstance(event_energies, np.ndarray) or isinstance(event_energies, tuple)):
+        raise TypeError("Expected list-like, not {}".format(type(event_energies)))
+    rising = event_energies[1] > event_energies[0]
+    print("Looking at {:.2f} GeV cascade".format(cascade_energy/const.GeV))
+    print("Event energies range from {} GeV to {} GeV".format(min(event_energies)/const.GeV,max(event_energies)/const.GeV))
     CC_E_energy = 0.98 # ratio of energy recovered in a CC electron cascade
-    # the initial neutrino energy we are considering  -- commented since this is part of the func args now
-    widths = get_width(in_energies)/const.GeV
-    #debug
-    #print("In Energy Increasing" if in_energies[1]>in_energies[0] else "In Energy Decreasing")
+    widths = get_width(event_energies)/const.GeV
     from_diffy = {}
     for flav in flavors:
         for neut in neuts:
@@ -264,26 +269,72 @@ def get_distribs_for_cascade_energy(event, event_widths, in_energies):
                 # in-energy needs to be changed. 
                 # if it's a normal hadronic cascade (muon NC)
                 key = flav+'_'+neut + '_'+curr
-                from_diffy[key] = np.array([0.0 for j in range(n_bins)])
-                if flav=='E' and curr=='CC':
-                    # in this case, we recover the energy from the entire cascade, so we essentially exactly know the energy of the parent neutrino
-                    # and so get the total cross-section/flux from that energy and put it all in one bin
-                    force_initial_energy = event/CC_E_energy 
-                    which_bin = 0 if rising else n_bins-1
-                    while in_energies[which_bin]<force_initial_energy:
-                        which_bin = which_bin+1 if rising else which_bin-1
-                        if (which_bin==n_bins or which_bin==-1):
-                            break                
-                    if (which_bin!=n_bins and which_bin>=0):
-                        # in this case, there is only one parent particle energy which could cause this cascade. So we get the total cross section!
-                        # N/(cm2 s GeV )     cm2
-                        from_diffy[key][which_bin] = data.get_flux(in_energies[which_bin], key)*get_diff_xs(in_energies[which_bin], get_flavor(key), get_neut(key), get_curr(key))
-                else:
-                    # N/(cm2 s GeV)     cm2/GeV  
-                    for j in range(n_bins):
-                        if in_energies[j]-event>0:
-                            from_diffy[key][j] =data.get_flux(in_energies[j], key)*get_diff_xs(in_energies[j], get_flavor(key), get_neut(key), get_curr(key),in_energies[j]-event,0.)*abs(event_widths[j])
+                from_diffy[key] = np.zeros(n_bins)
+                if curr=='CC':
+                    if flav=='E':
+                        print("Injecting Spike")
+                        #inject single spike
+                        forced_initial_energy = cascade_energy / CC_E_energy
+                        which_bin = 0 if rising else n_bins-1
+                        while event_energies[which_bin]<forced_initial_energy:
+                            which_bin = which_bin+1 if rising else which_bin-1
+                            if (which_bin==n_bins or which_bin==-1):
+                                break                
+                        if (which_bin!=n_bins and which_bin>=0):
+                            # in this case, there is only one parent particle energy which could cause this cascade. So we get the total cross section!
+                            # N/(cm2 s GeV )     cm2
+                            from_diffy[key][which_bin] = data.get_flux(event_energies[which_bin], key)*get_diff_xs(event_energies[which_bin], get_flavor(key), get_neut(key), get_curr(key))
+                    else: # this is a track
+                        continue
+                else: # cool! 
+                    lepton_energy = (event_energies - cascade_energy)
+                    print("Lepton Energy ranges from {:.2f} to {:.2f}. It is {}".format(min(lepton_energy)/const.GeV, max(lepton_energy)/const.GeV, "increasing" if lepton_energy[0]<lepton_energy[1] else "decreasing"))
+                    for j in range(n_bins): # iterate over possible event energies 
+                        if lepton_energy[j]>0.:
+                            from_diffy[key][j] =data.get_flux(event_energies[j], key)*get_diff_xs(event_energies[j], get_flavor(key), get_neut(key), get_curr(key),lepton_energy[j],0.5)*event_widths[j]
     return(from_diffy, widths)
+
+if mode==-1:
+    plt.figure(2)
+    e_min=50*const.GeV
+    e_max=10*const.PeV
+    event_energies = np.logspace(np.log10(e_min),np.log10(e_max), n_bins)
+
+    cascade_energy = 100*const.GeV
+    lepton_energies = event_energies - cascade_energy
+    lepton_widths = get_width(lepton_energies)
+
+    from_diffy, widths = get_distribs_for_cascade_energy(cascade_energy, lepton_widths/const.GeV, event_energies)
+    from_elec = np.array([0. for ebin in range(n_bins)])
+    from_muon = np.array([0. for ebin in range(n_bins)])
+    from_tau  = np.array([0. for ebin in range(n_bins)])
+    for flav in flavors:
+        for neut in neuts:
+            for curr in currents:
+                if (flav=='Mu' or flav=='Tau') and curr=='CC':
+                    continue
+                key = flav+'_'+neut+'_'+curr
+                if flav=='E':
+                    from_elec += from_diffy[key]
+                elif flav=='Mu':
+                    from_muon+=from_diffy[key]
+                elif flav=='Tau':
+                    from_tau+=from_diffy[key]
+                else:
+                    raise Exception("Impossible Logic! Flavor {}".format(flav))
+
+    plt.clf()
+    plt.plot(event_energies/const.GeV, from_elec, color=get_color(0,3), label="Electrons")
+    plt.plot(event_energies/const.GeV, from_muon, color=get_color(1,3), label="Muons")
+    plt.plot(event_energies/const.GeV, from_tau , color=get_color(2,3), label="Taus")
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.xlabel("Event Energy [GeV]")
+    plt.ylabel("Flux by Flavor")
+    plt.title("Fluxes leading to a {:.2f} GeV Cascade".format(cascade_energy/const.GeV))
+    filename = "Flavor_Debug.png"
+    plt.savefig(filename, dpi=400)
+    print("Saved {}".format(filename))
 
 if mode==0 or mode==1:
 
@@ -293,8 +344,8 @@ if mode==0 or mode==1:
     # the initial neutrino energy we are considering
 
     energy = 100*const.GeV
-    energy_width = 1*const.MeV
-    from_diffy, widths  = get_distribs_for_cascade_energy(energy, energy_width/const.GeV, in_energies)
+    casc_widths = get_width(in_energies - energy)
+    from_diffy, widths  = get_distribs_for_cascade_energy(energy, casc_widths/const.GeV, in_energies)
     from_muon = np.array([ 0. for ienergy in range(n_bins) ])
     from_not = np.array([ 0. for ienergy in range(n_bins) ])
     for flav in flavors:
@@ -313,6 +364,7 @@ if mode==0 or mode==1:
         from_muon=(from_muon)/norm
         from_not =(from_not)/norm
 
+        plt.clf()
         plt.plot(in_energies/const.GeV, from_muon, color=get_color(0,2),label="Muon Origin")
         plt.plot(in_energies/const.GeV, from_not, color=get_color(1,2),label="Other Origin")
         
@@ -323,6 +375,7 @@ if mode==0 or mode==1:
         norm = sum([ sum(from_diffy[key]) for key in from_diffy ])
         n_colors = len(list(from_diffy.keys()))
         counter = 0
+        plt.clf()
         for key in from_diffy:
             from_diffy[key] = [value/norm for value in from_diffy[key]]
             plt.plot( in_energies/const.GeV, from_diffy[key], color=get_color(counter, n_colors),label=key)
@@ -410,6 +463,157 @@ def generate_mode2_data():
     _save_data(parent_energies, these_energies, muon_ones, not_muon)
     return( parent_energies, these_energies, muon_ones, not_muon )
 
+# from_diffy[key][j] =data.get_flux(event_energies[j], key)*get_diff_xs(event_energies[j], get_flavor(key), get_neut(key), get_curr(key),lepton_energy[j],0.5)*event_widths[j]
+def get_2D_flux(lepton_energies, event_energies, key):
+    """
+    Builds a doubly differential flux array for the given desired flux (as specified by the key)
+    """
+    lep_bins = len(lepton_energies)
+    evt_bins = len(event_energies)
+    fluxes = np.zeros((lep_bins, evt_bins))
+
+    for lep_bin in range(lep_bins):
+        for evt_bin in range(evt_bins):
+            fluxes[lep_bin][evt_bin] = data.get_flux(event_energies[evt_bin],key)
+            fluxes[lep_bin][evt_bin]*= get_diff_xs(event_energies[evt_bin], get_flavor(key), get_neut(key), get_curr(key), lepton_energies[lep_bin],0.5)
+   
+    return(fluxes)
+
+def swap_to_cascade(flux, lepton_energies, event_energies, key):
+    """
+    Takes a doubly differential flux array and the lepton and event energies
+
+    Then it swaps it around to be doubly differential in cascade and event energies 
+    """
+    # we want this to follow the same trend 
+    cascade_energies = [i for i in lepton_energies]
+    flav = key.split('_')[0]
+    curr = key.split('_')[2]
+    cce_eff = 0.98
+
+    # cascade vs event 
+    nuflux = np.zeros((len(cascade_energies), len(event_energies)))
+
+    def get_cascade_bin( energy ):
+        """
+        Returns the appropriate bin for a provided cascade energy 
+        """
+        altmode = True
+        if altmode:
+            min_diff = None
+            minbin = None
+            for i in range(len(cascade_energies)):
+                if min_diff is None:
+                    min_diff = abs(energy-cascade_energies[i])
+                    minbin = i
+                else:
+                    if min_diff > abs(energy-cascade_energies[i]):
+                        min_diff = abs(energy-cascade_energies[i])
+                        minbin = i
+                    else:
+                        return(i)
+            return(i)
+        else:
+            increasing = cascade_energies[0] < cascade_energies[1]
+            index = 0 if increasing else len(cascade_energies)-1
+            while energy > cascade_energies[index]:
+                index = index+1 if increasing else index-1
+                if increasing:
+                    if index==len(cascade_energies):
+                        break
+                else:
+                    if index==-1:
+                        break
+            return(index)
+
+    lepton_widths = get_width(lepton_energies)/const.GeV
+    cascade_widths = get_width(cascade_energies)/const.GeV
+
+    for lep_bin in range(len(lepton_energies)):
+        for evt_bin in range(len(event_energies)):
+            if lepton_energies[lep_bin] > event_energies[evt_bin]:
+                continue #forbidden! 
+            if curr=='CC':
+                if flav=="E":
+                    index = get_cascade_bin(event_energies[evt_bin]*cce_eff)
+                else:
+                    continue # track
+            else: #NC
+                index = get_cascade_bin(event_energies[evt_bin] - lepton_energies[lep_bin])
+            if index!=len(cascade_energies) and index!=-1:
+                nuflux[index][evt_bin] += flux[lep_bin][evt_bin]*lepton_widths[lep_bin]/cascade_widths[index]
+    return(flux)
+
+def mode8(n_bins=200):
+    """
+    Newer method for working out the likely event energy based on the cascade energy 
+
+    Now it prepares a doubly differential flux (lepton vs event)
+    Then it transitions to a doubly differential one with respect to the cascade 
+        - it uses the lepton and event energy to get the hadronic component (or 98% of the event energy for CC e-)
+        - moves the flux from the lepton bin to the corresponding cascade energy bin, and rescales according to the different lepton/cascade bin widths 
+
+    Then it combines these into two 2D differential things for the "muon" ones and "not muon" ones (simple addition)
+    and returns the event energies, lepton energies, and the two 2D differential arrays 
+    """
+    print("Generating 2D LeptonVsEvent")
+    e_min = 50*const.GeV
+    e_max = 100*const.TeV
+    extra = 2
+
+    lepton_energies = np.logspace(np.log10(e_min), np.log10(e_max),n_bins)
+    event_energies = np.logspace(np.log10(e_min), np.log10(e_max)+extra,n_bins)
+    flux = {}
+    nuflux = {}
+    from_muon = np.zeros((n_bins, n_bins))
+    from_not = np.zeros((n_bins, n_bins))
+    
+    for flav in flavors:
+        for neut in neuts:
+            for curr in currents:
+                key = flav+"_"+neut+"_"+curr
+                if (flav=="Mu" or flav=="Tau") and curr=="CC":
+                    continue # skip tracks
+                else:
+                    print("Working on {} {} {} Events".format(curr, neut, flav))
+                    flux[key] = get_2D_flux( lepton_energies, event_energies, key)
+                    nuflux[key] = swap_to_cascade( flux[key], lepton_energies, event_energies,key)
+                    if flav=="Mu":
+                        from_muon += nuflux[key]
+                    else:
+                        from_not += nuflux[key]
+    
+    return(event_energies,lepton_energies, from_muon, from_not) 
+
+if mode==8:
+    n_bins = 10
+    event_energies, cascade_energies, from_muon, from_not = mode8(n_bins)
+
+    plt.figure()
+    levels = np.logspace(-60,-40,10)
+    cf = plt.contourf(event_energies/const.GeV, cascade_energies/const.GeV, from_muon,cmap=cm.coolwarm, locator=ticker.LogLocator(), levels=levels)
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.xlabel('Parent Energy [GeV]', size=14)
+    plt.ylabel('Cascade Energy [GeV]', size=14)
+    plt.grid(which='major',alpha=0.7)
+    cbar = plt.colorbar(cf,ticks=ticker.LogLocator())
+    cbar.set_label(r"$dN/(dE_{f}dE_{i})$ [s$^{-1}$GeV$^{-2}$]")
+    print("saving from_muon.png")
+    plt.savefig('from_muon.png', dpi=400)
+    plt.clf()
+    cf = plt.contourf(event_energies/const.GeV, cascade_energies/const.GeV, from_not,cmap=cm.coolwarm, locator=ticker.LogLocator(), levels=levels)
+    cbar = plt.colorbar(cf,ticks=ticker.LogLocator())
+    cbar.set_label(r"$dN/(dE_{f}dE_{i})$ [s$^{-1}$GeV$^{-2}$]")
+    plt.grid(which='major',alpha=0.7)
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.xlabel('Parent Energy [GeV]', size=14)
+    plt.ylabel('Cascade Energy [GeV]', size=14)
+    plt.savefig('from_not.png', dpi=400)
+    print("Saving from_not.png")
+
+
 if mode==2 or mode==4:
     if load_stored and os.path.exists(savefile):
         parent_energies, these_energies, muon_ones, not_muon = _load_data()
@@ -463,7 +667,7 @@ if mode==5:
     if load_stored and os.path.exists(savefile):
         parent_energies, these_energies, muon_ones, not_muon = _load_data()
     else:
-        parent_energies, these_energies, muon_ones, not_muon = generate_mode2_data()
+        parent_energies, these_energies, muon_ones, not_muon = mode8(n_bins)
    
     cascade_widths = get_width(these_energies)/const.GeV
     parent_widths = get_width(parent_energies)/const.GeV
@@ -508,7 +712,7 @@ if mode==5:
     axes[1].set_xscale('log')
 
     axes[1].set_xlabel("Cascade Energy [GeV]")
-    axes[0].set_ylabel("Likely Parent Neutrino Energy [GeV]")
+    axes[0].set_ylabel("Likely Event Energy [GeV]")
     axes[1].set_ylabel("Probability Muon")
     print("saving probable_energy.png")
     plt.savefig("probable_energy.png", dpi=400)
@@ -524,7 +728,7 @@ if mode==6:
     if load_stored and os.path.exists(savefile):
         parent_energies, these_energies, muon_ones, not_muon = _load_data()
     else:
-        parent_energies, these_energies, muon_ones, not_muon = generate_mode2_data()
+        parent_energies, these_energies, muon_ones, not_muon = mode8(n_bins)
   
     cascade_widths = get_width(these_energies)/const.GeV
     parent_widths = get_width(parent_energies)/const.GeV

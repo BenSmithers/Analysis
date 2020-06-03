@@ -62,7 +62,7 @@ def get_total_flux( energy, flavor, neutrino, current):
 
 # I don't want to totally remove this code, but I don't want it called as I import some of the funcitons above
 # so I'm just commenting this all out for now. 
-skip_plots = False
+skip_plots = True
 if not skip_plots:
     total_xss = {}
     for current in currents:
