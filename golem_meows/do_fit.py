@@ -68,8 +68,9 @@ datapaths.astro_nusquids_file                    = astro_file
 datapaths.barr_resources_location               = run_options['fluxdir']
 
 # This Loads the parameters from the json file and injects them into the GF objects 
+print("Setting the parameters")
 set_GF(fitparams, fit_config)
-set_GF(steering_params, steering_config)
+#set_GF(steering_params, steering_config) #previously caused the segault
 set_GF(fitparams_flag, flags_config)
 set_GF(priors, priors_config)
 set_GF(npp, parse_point(point))
@@ -84,16 +85,18 @@ def steer():
     """
     steering_params.fullLivetime = {0: float(parameters['years'])*365*24*60*60}
     steering_params.sterile_model_label = point
-    steering_params.spline_dom_efficiency = bool(parameters['systematics'][0])
-    steering_params.spline_hole_ice = bool(parameters['systematics'][1])
-    steering_params.load_atmospheric_density_spline = bool(parameters['systematics'][6])
+    #steering_params.spline_dom_efficiency = bool(parameters['systematics'][0])
+    #steering_params.spline_hole_ice = bool(parameters['systematics'][1])
+    #steering_params.load_atmospheric_density_spline = bool(parameters['systematics'][6])
     steering_params.spline_hqdom_efficiency = bool(parameters['systematics'][7])
-    steering_params.load_barr_gradients = '1' in parameters['barr']
-    steering_params.use_ice_gradients = '1' in parameters['multisim']
+    #steering_params.load_barr_gradients = '1' in parameters['barr']
+    #steering_params.use_ice_gradients = '1' in parameters['multisim']
 
 steer()
 
+print("------------ > Building GF Fitter")
 golemfit = gf.GolemFit(datapaths, steering_params, npp)
+print("------------ > Setting Fit Flags")
 golemfit.SetFitParametersFlag(fitparams_flag)
 golemfit.SetFitParametersPriors(priors)
 
@@ -102,6 +105,7 @@ realization_dist = np.load(run_options['realization'])['realization']
 golemfit.Swallow(realization_dist)
 
 # Minimize to the fit
+print("------------ > Do Fit")
 min_llh = golemfit.MinLLH()
 # what we want from the fit: 
 fit_keys = ["likelihood", "convNorm", "CRDeltaGamma", "piKRatio", \
@@ -111,7 +115,10 @@ fit_keys = ["likelihood", "convNorm", "CRDeltaGamma", "piKRatio", \
         "promptNorm","astroNorm","astroDeltaGamma","nuxs","nubarxs","kaonLosses"]
 
 for key in fit_keys:
-    print("{}: {}".format(key, getattr(min_llh.params, key)))
+    try:
+        print("{}: {}".format(key, getattr(min_llh.params, key)))
+    except AttributeError:
+        print("Encountered invalid attribute {} of minimization".format(key))
 
 fit = golemfit.GetExpectation(min_llh.params)[0][0][0] #?????
 fit_sum = sum(fit)
@@ -120,9 +127,12 @@ output_dict = {}
 
 output_dict['fit_params'] = {}
 for key in fit_keys:
-    output_dict['fit_params'][key] = getattr(min_llh.params,key)
+    try:
+        output_dict['fit_params'][key] = getattr(min_llh.params,key)
+    except AttributeError:
+        print("Argh. Invalid attribute {}".format(key))
 
 
-target_file = os.path.join(run_options['outdir'],"GF_fit_" ,run_options['point'], ".json")
+target_file = os.path.join(run_options['outdir'],"GF_fit_" +run_options['point']+ ".json")
 with open(target_file,'w') as f:
     json.dump(output_dict, f)
