@@ -4,11 +4,12 @@ This script plots the fluxes output by the convolve cpp script
 
 But how does it work?
  1. Raw flux data from the included mceq+nuSQuIDS flux is loaded in by the Data Object. This object has functionality for sampling from the flux at arbitrary parent neutrino energy by interpolating between nsq points.
- 2. get_distribs_for_initial_energy is then used to get the spectra of events that could produce a cascade of a specified energy. This uses nuSQuIDS DIS cross sections
- 3. These two are used in tandem to make most plots. The generate_mode2_data function is used to make a 2D doubly differential flux array. 
+ 2. This flux data is convolved with differential cross sections to create a incoming V outgoing doubly differential flux-rate array
+ 3. The DD flux array is converted to be a incoming vs cascade doubly differential flux-rate array, respecting cascade energy differences wrt flavor/interaction
+
+The heavy lifting goes on in the generate_doubly_diff_fluxes function 
 
 Different "modes" are used to make different plots. 
-The "Norm" arg is used to switch between normalizing the flux and and showing the raw Flux rates
 '''
 
 from optparse import OptionParser
@@ -21,32 +22,29 @@ parser.add_option("-m", "--mode",
                 default=0,
                 type=int,
                 help=mode_str)
-parser.add_option("-n", "--norm",
-                dest="norm",
-                default=False,
-                action="store_true",
-                help="Should it be normed? Flag for True")
 parser.add_option("-l", "--load_stored",
                 dest="load_stored",
                 default=False,
                 action="store_true",
                 help="Should I try to load stored data rather than regenerate it?")
+parser.add_option("-d", "--debug", 
+                dest="debug",
+                default=False,
+                action="store_true",
+                help="activates debug options")
 options, args = parser.parse_args()
 mode = options.mode
-do_norm = options.norm
 load_stored = options.load_stored
+debug = options.debug
+
+do_norm=False # deprecated 
 
 recognized_modes = [0,1,2,3,4,5,6,7,-1,8]
-if mode not in recognized_modes:
+if mode not in recognized_modes: 
     raise ValueError("Unrecognized Mode: {}".format(mode))
+if mode in [-1,0,1,2,4,7]:
+    raise DeprecationWarning("Mode {} is deprecated".format(mode))
 
-debug = False
-
-if mode==3:
-    mode = 2
-    do_norm = False
-if mode==5:
-    do_norm = True
 
 '''
 Modes
@@ -69,6 +67,7 @@ import numpy as np
 # file system, control
 import os
 import pickle
+from warnings import warn
 
 #plotting imports
 import matplotlib
@@ -212,6 +211,7 @@ scale_e = np.array(data.energies)
 
 # this block here is supposed to just plot all the raw fluxes 
 if debug:
+    print("Making Debug plot")
     binny = len(scale_e)
     taus = np.zeros(binny)
     muon = np.zeros(binny)
@@ -251,6 +251,8 @@ def get_distribs_for_cascade_energy(cascade_energy, event_widths, event_energies
     Param "event_width" refers to the width of the bin for the cascade_energy's energy. Needed to properly scale rates. [GEV]
     Param "event_energies" is the list of possible progenitor neutrino energies to consider. in eV. LIST
     """
+    raise DeprecationWarning("This function is deprecated")
+
     if not (isinstance(cascade_energy, float) or isinstance(cascade_energy,int)):
         raise TypeError("Expected number-like, not {}".format(type(cascade_energy)))
     if not (isinstance(event_energies, list) or isinstance(event_energies, np.ndarray) or isinstance(event_energies, tuple)):
@@ -295,6 +297,11 @@ def get_distribs_for_cascade_energy(cascade_energy, event_widths, event_energies
     return(from_diffy, widths)
 
 if mode==-1:
+    """
+    This mode was made to plot the separate fluxes from the get_distribs_for_cascade_energy function
+
+    That function is deprectated now, and so this one is too. 
+    """
     plt.figure(2)
     e_min=50*const.GeV
     e_max=10*const.PeV
@@ -337,6 +344,11 @@ if mode==-1:
     print("Saved {}".format(filename))
 
 if mode==0 or mode==1:
+    """
+    This was used to make plots showing the probability density of event energy using a fixed cascade energy.
+
+    This is deprecated. 
+    """
 
     e_min = 50*const.GeV
     e_max = 10*const.PeV
@@ -417,12 +429,14 @@ def _save_data(parent_energies, child_energies, muon_ones, not_muon):
                     "not_muon": not_muon}
     f = open(savefile,'wb')
     pickle.dump( all_data, f, -1)
-    f.close()    
+    f.close()   
+    print("Data Saved!")
 
 def generate_mode2_data():
     """
     Generates the data for mode 2
     """
+    raise DeprecationWarning("This function is deprecated! ")
     print("Calculating E_i Distributions")
     e_min = 50*const.GeV
     e_max = 100*const.TeV
@@ -468,15 +482,23 @@ def get_2D_flux(lepton_energies, event_energies, key):
     """
     Builds a doubly differential flux array for the given desired flux (as specified by the key)
     """
+    if not (isinstance(lepton_energies, list) or isinstance(lepton_energies, np.ndarray)):
+        raise TypeError("Expected {} for 'lepton_energies', got {}".format(np.ndarray, type(lepton_energies)))
+    if not (isinstance(event_energies, list) or isinstance(event_energies, np.ndarray)):
+        raise TypeError("Expected {} for 'event_energies', got {}".format(np.ndarray, type(event_energies)))
+    if not isinstance(key, str):
+        raise TypeError("Expected {} for key, got {}".format(str, type(key)))
+
     lep_bins = len(lepton_energies)
     evt_bins = len(event_energies)
-    fluxes = np.zeros((lep_bins, evt_bins))
+    fluxes = np.zeros((lep_bins,evt_bins))
 
     for lep_bin in range(lep_bins):
         for evt_bin in range(evt_bins):
+            if event_energies[evt_bin]<lepton_energies[lep_bin]:
+                continue
             fluxes[lep_bin][evt_bin] = data.get_flux(event_energies[evt_bin],key)
-            fluxes[lep_bin][evt_bin]*= get_diff_xs(event_energies[evt_bin], get_flavor(key), get_neut(key), get_curr(key), lepton_energies[lep_bin],0.5)
-   
+            fluxes[lep_bin][evt_bin]*= get_diff_xs(event_energies[evt_bin], get_flavor(key), get_neut(key), get_curr(key), lepton_energies[lep_bin],0.0) 
     return(fluxes)
 
 def swap_to_cascade(flux, lepton_energies, event_energies, key):
@@ -528,9 +550,11 @@ def swap_to_cascade(flux, lepton_energies, event_energies, key):
                 index = get_cascade_bin(event_energies[evt_bin] - lepton_energies[lep_bin])
             if index!=len(cascade_energies) and index!=-1:
                 nuflux[index][evt_bin] += flux[lep_bin][evt_bin]*lepton_widths[lep_bin]/cascade_widths[index]
+            else:
+                print("Error? Key {}, event {:.2f} lepton {:.2f}".format(key, event_energies[evt_bin]/const.GeV, lepton_energies[lep_bin]/const.GeV))
     return(flux)
 
-def mode8(n_bins=200):
+def generate_doubly_diff_fluxes(n_bins=200, debug=False):
     """
     Newer method for working out the likely event energy based on the cascade energy 
 
@@ -541,6 +565,8 @@ def mode8(n_bins=200):
 
     Then it combines these into two 2D differential things for the "muon" ones and "not muon" ones (simple addition)
     and returns the event energies, lepton energies, and the two 2D differential arrays 
+
+    If "debug" is True, it instead returns the og nuflux dictionary 
     """
     print("Generating 2D LeptonVsEvent")
     e_min = 50*const.GeV
@@ -549,6 +575,9 @@ def mode8(n_bins=200):
 
     lepton_energies = np.logspace(np.log10(e_min), np.log10(e_max),n_bins)
     event_energies = np.logspace(np.log10(e_min), np.log10(e_max)+extra,n_bins)
+    if debug:
+        print("lepton ranges from {:.2f} to {:.2f} GeV".format(min(lepton_energies)/const.GeV, max(lepton_energies)/const.GeV))
+        print("event ranges from  {:.2f} to {:.2f} GeV".format(min(event_energies)/const.GeV,  max(event_energies)/const.GeV))
     flux = {}
     nuflux = {}
     from_muon = np.zeros((n_bins, n_bins))
@@ -562,24 +591,26 @@ def mode8(n_bins=200):
                     continue # skip tracks
                 else:
                     print("Working on {} {} {} Events".format(curr, neut, flav))
+                    # [cascade/lepton] [ event ]
                     flux[key] = get_2D_flux( lepton_energies, event_energies, key)
                     nuflux[key] = swap_to_cascade( flux[key], lepton_energies, event_energies,key)
                     if flav=="Mu":
-                        from_muon += nuflux[key]
+                        from_muon += flux[key] if debug else nuflux[key]
                     else:
-                        from_not += nuflux[key]
-    
+                        from_not += flux[key] if debug else nuflux[key]
+#parent child muon not_muon
+    _save_data( event_energies, lepton_energies, from_muon, from_not)
     return(event_energies,lepton_energies, from_muon, from_not) 
 
 if mode==8:
-    n_bins = 10
-    event_energies, cascade_energies, from_muon, from_not = mode8(n_bins)
+    n_bins = 200
+    event_energies, cascade_energies, from_muon, from_not = generate_doubly_diff_fluxes(n_bins)
     
     from_muon = np.ma.masked_where(from_muon<=0, from_muon)
     from_not  = np.ma.masked_where(from_not<=0, from_not)
 
     plt.figure()
-    levels = np.logspace(-65,-45,10)
+    levels = np.logspace(-70,-45,10)
     print("Max of muon: {}".format(np.min(from_muon)))
     cf = plt.contourf(event_energies/const.GeV, cascade_energies/const.GeV, from_muon,cmap=cm.coolwarm, locator=ticker.LogLocator(), levels=levels)
     plt.xscale('log')
@@ -605,10 +636,15 @@ if mode==8:
 
 
 if mode==2 or mode==4:
+    """
+    Creates two 2D contour plots showing doubly differential event rates as a function of event and cascade energy. 
+
+    Deprecated. See generate_doubly_diff_fluxes! 
+    """
     if load_stored and os.path.exists(savefile):
         parent_energies, these_energies, muon_ones, not_muon = _load_data()
     else:
-        parent_energies, these_energies, muon_ones, not_muon = generate_mode2_data()
+        parent_energies, these_energies, muon_ones, not_muon = generate_doubly_diff_fluxes(n_bins)
 
     print("Plotting")
     # so it doesn't scream about logged zeros 
@@ -654,10 +690,16 @@ if mode==2 or mode==4:
         print("Saving ratio_plot.png")
         plt.savefig('ratio_plot.png', dpi=400) 
 if mode==5:
+    """
+    This mode prepares a plot showing the median energy of an event as a function of cascade energy.
+    It has two trends, one for muons and one for everything else.
+
+    Error bands are shown representing a 1-sigma deviation 
+    """
     if load_stored and os.path.exists(savefile):
         parent_energies, these_energies, muon_ones, not_muon = _load_data()
     else:
-        parent_energies, these_energies, muon_ones, not_muon = mode8(n_bins)
+        parent_energies, these_energies, muon_ones, not_muon = generate_doubly_diff_fluxes(n_bins)
    
     cascade_widths = get_width(these_energies)/const.GeV
     parent_widths = get_width(parent_energies)/const.GeV
@@ -712,13 +754,13 @@ if mode==6:
     In this mode, I make a two-for-one plot. We show the most probable event energy as a
         function of the cascade's energy. Underneath this plot, we show the probability 
         that the event is due to a muon.
-
-    There's also a bug in here... 
+    
+    This doesn't make the muon/notmuon distinction from mode 5
     """
     if load_stored and os.path.exists(savefile):
         parent_energies, these_energies, muon_ones, not_muon = _load_data()
     else:
-        parent_energies, these_energies, muon_ones, not_muon = mode8(n_bins)
+        parent_energies, these_energies, muon_ones, not_muon = generate_doubly_diff_fluxes(n_bins)
   
     cascade_widths = get_width(these_energies)/const.GeV
     parent_widths = get_width(parent_energies)/const.GeV
@@ -762,6 +804,11 @@ if mode==6:
     plt.savefig("predicted_event_E.png", dpi=400)
 
 if mode==7:
+    """
+    This is deprectated.
+
+    It was another method to recreate the results from mode 6, but ultimately encountered the same issues as mode 6.
+    """
     e_min = 50*const.GeV
     e_max = 100*const.TeV
 
