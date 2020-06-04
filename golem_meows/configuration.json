@@ -13,6 +13,7 @@
     },
     "steering_options": {
         "simToLoad":"Platinum_Split",
+        "fastmode_scaling": 2.00,
         "logEbinWidth":0.1,
         "logEbinEdge":2.69897000,
         "minFitEnergy":500,
@@ -29,10 +30,8 @@
         "use_ice_gradients":true,
         "evalThreads":1.0,
         "quiet":false,
-        "fastmode_scaling": 2.00,
         "spline_attenuation":true,
-        "fastmode":false,
-        "readCompact": true
+        "fastmode":false
     },
     "parameters": {
         "ebin": 0.1,
