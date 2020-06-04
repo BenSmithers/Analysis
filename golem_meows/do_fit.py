@@ -6,7 +6,8 @@ import os # used to load in the configuration file
 import numpy as np
 
 # bring in several utility funtions 
-from utils import parse_point, check_configuration, converter, get_seed, set_GF, implicit_convert
+from utils import parse_point, check_configuration, converter, get_seed, set_GF, explicit_convert
+from utils import listattr
 
 '''
 Ben Smithers
@@ -32,15 +33,15 @@ f.close()
 
 # load in configuration data
 # do the implicit conversion to make sure all the strings are strings! 
-run_options= implicit_convert(config['run_options'])
+run_options= explicit_convert(config['run_options'])
 # verify that these run options are valid before doing any heavy lifting
 check_configuration(run_options)
 
-fit_config      = implicit_convert(config['central_values'])
-steering_config = implicit_convert(config['steering_options'])
-parameters      = implicit_convert(config['parameters'])
-flags_config    = implicit_convert(config['fitflags'])
-priors_config   = implicit_convert(config['priors'])
+fit_config      = explicit_convert(config['central_values'])
+steering_config = explicit_convert(config['steering_options'])
+parameters      = explicit_convert(config['parameters'])
+flags_config    = explicit_convert(config['fitflags'])
+priors_config   = explicit_convert(config['priors'])
 
 # contruct GF objects
 datapaths = gf.DataPaths(run_options['datapath'])
@@ -70,7 +71,7 @@ datapaths.barr_resources_location               = run_options['fluxdir']
 # This Loads the parameters from the json file and injects them into the GF objects 
 print("Setting the parameters")
 set_GF(fitparams, fit_config)
-#set_GF(steering_params, steering_config) #previously caused the segault
+set_GF(steering_params, steering_config) #previously caused the segault
 set_GF(fitparams_flag, flags_config)
 set_GF(priors, priors_config)
 set_GF(npp, parse_point(point))
@@ -91,6 +92,7 @@ def steer():
     steering_params.spline_hqdom_efficiency = bool(parameters['systematics'][7])
     #steering_params.load_barr_gradients = '1' in parameters['barr']
     #steering_params.use_ice_gradients = '1' in parameters['multisim']
+    steering_params.readCompact = False
 
 steer()
 
@@ -107,12 +109,7 @@ golemfit.Swallow(realization_dist)
 # Minimize to the fit
 print("------------ > Do Fit")
 min_llh = golemfit.MinLLH()
-# what we want from the fit: 
-fit_keys = ["likelihood", "convNorm", "CRDeltaGamma", "piKRatio", \
-        "NeutrinoAntineutrinoRatio", "domEfficiency","holeiceForward"\
-        "zenithCorrection","hqdomEfficiency","barrHM","barrHP","barrWM"\
-        "barrWP","barrYM","barrYP","barrZM","barrZP","icegrad0","icegrad1"\
-        "promptNorm","astroNorm","astroDeltaGamma","nuxs","nubarxs","kaonLosses"]
+fit_keys = listattr(min_llh.params) # grabs the attributes that we care about (all of them...)
 
 for key in fit_keys:
     try:
@@ -132,7 +129,8 @@ for key in fit_keys:
     except AttributeError:
         print("Argh. Invalid attribute {}".format(key))
 
-
+# Write the fit parametrs to a json file
 target_file = os.path.join(run_options['outdir'],"GF_fit_" +run_options['point']+ ".json")
 with open(target_file,'w') as f:
-    json.dump(output_dict, f)
+    json.dump(output_dict, f, ensure_ascii=True, indent=2)
+print("-------- > Wrote fit data to {}".format(target_file))

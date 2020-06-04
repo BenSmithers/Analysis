@@ -1,8 +1,27 @@
 import numpy as np
 import os
 
+def listattr( obj ):
+    """
+    This function lists the attributes belonging to some object "obj."
+    It ignores any attributes starting with a "_", since these are usually special
+        and/or indented to be access-restricted. 
 
-def implicit_convert( what ):
+    Not sure how this will work in other versions of python 
+
+    It returns a list of strings
+    """
+    # this does most of the important stuff, just without the filter 
+    temp = dir(obj)
+
+    # lambda is the anonymous function, which provides the rules to the "filter" on temp
+    #   filter returns another iterable, which we cast as a list 
+    temp = list(filter(lambda x:x[0]!="_", temp))
+    
+    return(temp)
+
+
+def explicit_convert( what ):
     """
     When data is loaded from the json file, it sometimes has weird datatypes. 
     Like, you don't have strings, you have Unicode representations. 
@@ -20,7 +39,7 @@ def implicit_convert( what ):
     if isinstance(what, dict):
         new_dict = {}
         for key in what.keys():
-            new_dict[key] = implicit_convert(what[key])
+            new_dict[key] = explicit_convert(what[key])
 
         return(new_dict)
     else:
