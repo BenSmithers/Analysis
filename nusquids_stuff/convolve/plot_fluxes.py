@@ -782,6 +782,10 @@ if mode==6:
     # we need to transpose the expectations for ease of plotting 
     expectation = np.transpose(expectation)
 
+    print("Performing Linear regression")
+    m, b = np.polyfit(x=np.log10(these_energies/const.GeV), y=np.log10(expectation[1]/const.GeV), deg=1)
+    print(" E [GeV] = ({:.2f})*(Cascade E/GeV)^{} ".format((1e9)*(10**b), m))
+
     axes[0].fill_between( these_energies/const.GeV, expectation[1]-expectation[0], expectation[1]+expectation[2], color='#5f97c7',alpha=0.2)
     axes[0].plot( these_energies/const.GeV, expectation[1], drawstyle='steps', color='#5f97c7')
     axes[1].plot(these_energies/const.GeV, p_muon)
@@ -791,7 +795,6 @@ if mode==6:
     axes[0].set_ylim([10**1, 10**7])
     axes[1].set_ylim([1e-4,1])
     axes[0].grid('major', alpha=0.5 )
-    axes[0].legend()
 
     axes[0].set_yscale('log')
     axes[0].set_xscale('log')
