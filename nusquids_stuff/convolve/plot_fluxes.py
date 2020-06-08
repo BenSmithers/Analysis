@@ -42,7 +42,7 @@ do_norm=False # deprecated
 recognized_modes = [0,1,2,3,4,5,6,7,-1,8]
 if mode not in recognized_modes: 
     raise ValueError("Unrecognized Mode: {}".format(mode))
-if mode in [-1,0,1,2,4,7]:
+if mode in [-1,0,1,2,7]:
     raise DeprecationWarning("Mode {} is deprecated".format(mode))
 
 
@@ -229,10 +229,12 @@ if debug:
             raise Exception("Ya Done goofed")
 
 
-    plt.plot( scale_e, muon, color=get_color(0,3),label="Muons")
-    plt.plot(scale_e, taus, color=get_color(1,3),label="Taus")
-    plt.plot(scale_e, ele, color=get_color(2,3), label="Electrons")
+    plt.plot( scale_e/const.GeV, muon, color=get_color(0,3),label="Muons")
+    plt.plot(scale_e/const.GeV, taus, color=get_color(1,3),label="Taus")
+    plt.plot(scale_e/const.GeV, ele, color=get_color(2,3), label="Electrons")
     plt.legend()
+    plt.xlabel("Event Energy [GeV]",size=14)
+    plt.ylabel("Flux [GeV sec cm$^{2}$ sr]$^{-1}$",size=14)
     plt.xscale('log')
     plt.yscale('log')
     plt.savefig('raw fluxes.png', dpi=400)
@@ -604,13 +606,18 @@ def generate_doubly_diff_fluxes(n_bins=200, debug=False):
 
 if mode==8:
     n_bins = 200
-    event_energies, cascade_energies, from_muon, from_not = generate_doubly_diff_fluxes(n_bins)
+    if load_stored and os.path.exists(savefile):
+        event_energies, cascade_energies, from_muon, from_not = _load_data()
+    else:
+        event_energies, cascade_energies, from_muon, from_not = generate_doubly_diff_fluxes(n_bins)
+
+#    event_energies, cascade_energies, from_muon, from_not = generate_doubly_diff_fluxes(n_bins)
     
     from_muon = np.ma.masked_where(from_muon<=0, from_muon)
     from_not  = np.ma.masked_where(from_not<=0, from_not)
 
     plt.figure()
-    levels = np.logspace(-70,-45,10)
+    levels = np.logspace(-70,-40,10)
     print("Max of muon: {}".format(np.min(from_muon)))
     cf = plt.contourf(event_energies/const.GeV, cascade_energies/const.GeV, from_muon,cmap=cm.coolwarm, locator=ticker.LogLocator(), levels=levels)
     plt.xscale('log')
@@ -677,9 +684,9 @@ if mode==2 or mode==4:
         plt.savefig('not_muon.png', dpi=400)
         print("Saving not_muon.png")
     elif mode==4:
-        levels = np.logspace(-2,2,20)
+        levels = np.logspace(-1,1,11)
         plt.figure()
-        cf = plt.contourf(parent_energies/const.GeV, these_energies/const.GeV, muon_ones/not_muon,cmap=cm.coolwarm, locator=ticker.LogLocator(), levels=levels)
+        cf = plt.contourf(parent_energies/const.GeV, these_energies/const.GeV, muon_ones/not_muon,cmap=cm.coolwarm, locator=ticker.LogLocator(),levels=levels)
         plt.xscale('log')
         plt.yscale('log')
         plt.xlabel('Parent Energy [GeV]', size=14)
