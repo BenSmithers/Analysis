@@ -39,7 +39,7 @@ debug = options.debug
 
 do_norm=False # deprecated 
 
-recognized_modes = [0,1,2,3,4,5,6,7,-1,8]
+recognized_modes = [0,1,2,3,4,5,6,7,-1,8,9]
 if mode not in recognized_modes: 
     raise ValueError("Unrecognized Mode: {}".format(mode))
 if mode in [-1,0,1,2,4,7]:
@@ -554,7 +554,7 @@ def swap_to_cascade(flux, lepton_energies, event_energies, key):
                 print("Error? Key {}, event {:.2f} lepton {:.2f}".format(key, event_energies[evt_bin]/const.GeV, lepton_energies[lep_bin]/const.GeV))
     return(flux)
 
-def generate_doubly_diff_fluxes(n_bins=200, debug=False):
+def generate_doubly_diff_fluxes(n_bins=200, debug=False, flavor_split=False):
     """
     Newer method for working out the likely event energy based on the cascade energy 
 
@@ -600,7 +600,10 @@ def generate_doubly_diff_fluxes(n_bins=200, debug=False):
                         from_not += flux[key] if debug else nuflux[key]
 #parent child muon not_muon
     _save_data( event_energies, lepton_energies, from_muon, from_not)
-    return(event_energies,lepton_energies, from_muon, from_not) 
+    if flavor_split:
+        return(event_energies,lepton_energies,flavor_split)
+    else:
+        return(event_energies,lepton_energies, from_muon, from_not) 
 
 if mode==8:
     n_bins = 200
@@ -880,3 +883,83 @@ if mode==7:
     plt.savefig("predicted_event_E_TWO.png", dpi=400)
 
 
+
+if mode==9:
+    """
+    This mode prepares a plot showing the median energy of an event as a function of cascade energy.
+    It has two trends, one for muons and one for everything else.
+
+    Error bands are shown representing a 1-sigma deviation 
+    """
+    n_bins = 200
+    parent_energies, these_energies, flux = generate_doubly_diff_fluxes(n_bins, flavor_split=True)
+   
+    cascade_widths = get_width(these_energies)/const.GeV
+    parent_widths = get_width(parent_energies)/const.GeV
+
+    taus =np.zeros(n_bins)
+    eles =np.zeros(n_bins)
+    muon =np.zeros(n_bins)
+
+    for flav in flavors:
+        for neut in neuts:
+            for curr in currents:
+                if (flav=='Mu' or flav=='Tau') and curr=='CC': # skip the tracks 
+                    continue 
+                key = flav+'_'+neut + '_'+curr
+                if flav=='Mu':
+                    muon+=flux[key]
+                elif flav=='Tau':
+                    taus+=flux[key]
+                elif flav=='E':
+                    eles+=flux[key]
+                else:
+                    raise ValueError("Explain yourself. {}".format(flav))
+
+    # the [outer_index] refers to an observed cascade energy
+    # the [inner_inde] corresponds to (lower_extent_error, mean, upper_extent_error)
+    muon_expectation = np.array([(0.,0.,0.) for j in range(n_bins)])
+    taus_expectation = np.array([(0.,0.,0.) for j in range(n_bins)])
+    eles_expectation = np.array([(0.,0.,0.) for j in range(n_bins)])
+
+    p_muon = np.zeros(n_bins)
+    for index in range(n_bins): # iterate over the cascade energies 
+        scale = 1.# cascade_widths[index]
+        mean, sigma_up, sigma_down = get_exp_std( parent_widths, muon[index], parent_energies/const.GeV)
+        muon_expectation[index] = np.array([sigma_down, mean, sigma_up])
+        
+        mean, sigma_up, sigma_down = get_exp_std( parent_widths, eles[index], parent_energies/const.GeV)
+        eles_expectation[index] = np.array([sigma_down, mean, sigma_up])
+
+        mean, sigma_up, sigma_down = get_exp_std( parent_widths, taus[index], parent_energies/const.GeV)
+        taus_expectation[index] = np.array([sigma_down, mean, sigma_up])
+
+        p_muon[index] = sum(muon_ones[index]*parent_widths)/(sum(not_muon[index]*parent_widths) + sum(muon_ones[index]*parent_widths))
+        
+    figs,axes = plt.subplots(nrows=2, ncols=1, sharex=True, gridspec_kw={'height_ratios':[3,1]})
+
+    axes[0].fill_between( these_energies/const.GeV, muon_expectation[1]-muon_expectation[0], muon_expectation[1]+muon_expectation[2], color='#5f97c7',alpha=0.2)
+    axes[0].fill_between( these_energies/const.GeV, eles_expectation[1]-eles_expectation[0], eles_expectation[1]+eles_expectation[2], color='#b31007', alpha=0.2)
+    axes[0].fill_between( these_energies/const.GeV, taus_expectation[1]-taus_expectation[0], taus_expectation[1]+taus_expectation[2], color='#86d1b2', alpha=0.2)
+    axes[0].plot( these_energies/const.GeV, muon_expectation[1], drawstyle='steps', label="Muon Origin", color='#5f97c7')
+    axes[0].plot( these_energies/const.GeV, eles_expectation[1], drawstyle='steps', label="Electron Origin", color='#b31007')
+    axes[0].plot( these_energies/const.GeV, taus_expectation[1], drawstyle='steps', label="Not Muon", color='#86d1b2')
+    axes[1].plot(these_energies/const.GeV, p_muon)
+    
+    axes[0].set_xlim([5e1, 10**5])
+    axes[1].set_xlim([5e1, 10**5])
+    axes[0].set_ylim([10**1, 10**7])
+    axes[1].set_ylim([1e-4,1])
+    axes[0].grid('major', alpha=0.5 )
+    axes[0].legend()
+
+    axes[0].set_yscale('log')
+    axes[0].set_xscale('log')
+    axes[1].set_xscale('log')
+
+    axes[1].set_xlabel("Cascade Energy [GeV]")
+    axes[0].set_ylabel("Median Event Energy [GeV]")
+    axes[1].set_ylabel("Probability Muon")
+    plt.savefig("all_three_flavor.png",dpi=400)
+    print("Saving all_three_flavor.png")
+    
