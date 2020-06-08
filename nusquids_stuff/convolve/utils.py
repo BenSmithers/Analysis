@@ -43,6 +43,10 @@ def get_width( which_list ):
             widths[i] = abs(use[-1]-use[-2])
         else:
             widths[i] = abs(0.5*(use[i+1]-use[i-1]))
+
+    if not all(width>0 for width in widths):
+        raise Exception("HOW {}".format(width))
+
     return(np.array(widths))
 
 def get_exp_std( widths, probabilities, values ):
@@ -61,10 +65,13 @@ def get_exp_std( widths, probabilities, values ):
     if not (len(widths)==len(values) and len(values)==len(probabilities)):
         raise ValueError("The args should have the same lengths")
 
+    if not all(width>=0 for width in widths):
+        raise ValueError("Found negative width, this can't be right.")
+
     norm = sum(probabilities*widths)
     prob_density = [ value/norm for value in probabilities]
 
-    if not all(value>=0. for value in prob_density):
+    if not all(value>=0 for value in prob_density):
         raise ValueError("Encountered negative probability in provided density!")
 
     mean=0.
@@ -85,6 +92,11 @@ def get_exp_std( widths, probabilities, values ):
     while upper_b < sigma:
         upper_b += widths[upper_bin]*prob_density[upper_bin]
         upper_bin += 1
+        if upper_bin==len(prob_density):
+            break
+
+    if upper_bin==len(values):
+        upper_bin-=1
     sigma_plus = values[upper_bin] - median
 
     lower_bin = median_bin -1
@@ -92,6 +104,11 @@ def get_exp_std( widths, probabilities, values ):
     while lower_b > (sigma - 0.5):
         lower_b -= widths[lower_bin]*prob_density[lower_bin]
         lower_bin-=1
+        if lower_bin==-1:
+            break
+
+    if lower_bin==-1:
+        lower_bin+=1
     sigma_minus = median - values[lower_bin]
 
     var=0.
