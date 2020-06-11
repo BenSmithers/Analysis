@@ -194,7 +194,7 @@ int main(){
 
     // define some properties for our atmosphere 
     long unsigned int n_nu = 3;
-    double Emin = 10*un.GeV;
+    double Emin = 1.*un.GeV;
     double Emax = 10*un.PeV;
     double cos_zenith_min = -0.999;
     double cos_zenith_max = 0.;
@@ -288,7 +288,6 @@ int main(){
             }
             file << std::endl;
         }
-        file << std::endl;
     }
 
     return 0;
