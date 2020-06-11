@@ -64,15 +64,21 @@ def get_exp_std( widths, probabilities, values ):
 
     if not (len(widths)==len(values) and len(values)==len(probabilities)):
         raise ValueError("The args should have the same lengths")
-
+   
     if not all(width>=0 for width in widths):
         raise ValueError("Found negative width, this can't be right.")
 
-    norm = sum(probabilities*widths)
-    prob_density = [ value/norm for value in probabilities]
+    if not all(prob>=0 for prob in probabilities):
+        raise ValueError("Found negative probability. {}".format(min(probabilities)))
 
-    if not all(value>=0 for value in prob_density):
-        raise ValueError("Encountered negative probability in provided density!")
+    norm = sum([widths[i]*probabilities[i] for i in range(len(widths))  ])
+    if norm==0.:
+        return(0.,0.,0.)
+
+    prob_density = np.array([ probabilities[i]/norm for i in range(len(probabilities))])
+    if abs(1.-sum(prob_density*widths))>(1e-8):
+        raise ValueError("Unable to normalize probabilities, got {}".format(sum(prob_density*widths)))
+    
 
     mean=0.
     for item in range(len(widths)):
@@ -84,6 +90,8 @@ def get_exp_std( widths, probabilities, values ):
     while acc_prob<0.5:
         acc_prob+= widths[median_bin]*prob_density[median_bin]
         median_bin+=1
+    if median_bin==len(prob_density):
+        median_bin-=1
     median = values[median_bin]
 
     # get upper bound
