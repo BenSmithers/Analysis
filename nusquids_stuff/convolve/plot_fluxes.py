@@ -7,7 +7,7 @@ But how does it work?
  2. This flux data is convolved with differential cross sections to create a incoming V outgoing doubly differential flux-rate array
  3. The DD flux array is converted to be a incoming vs cascade doubly differential flux-rate array, respecting cascade energy differences wrt flavor/interaction
 
-The heavy lifting goes on in the generate_doubly_diff_fluxes function 
+The heavy lifting goes on in the generate_singly_diff_fluxes function 
 
 Different "modes" are used to make different plots. 
 '''
@@ -124,9 +124,10 @@ class Data:
         """
         print("Extracting Data")
         data = np.loadtxt(os.path.join( os.path.dirname(__file__), 'atmosphere.txt'), dtype=float, comments='#',delimiter=' ')
-        n_energies = 700
+        n_energies = 701
         n_angles = 100
-        assert( len(data) == (n_energies*n_angles))
+        if not (len(data)==n_energies*n_angles):
+            raise ValueError("Datafile length error? {}!={}".format(len(data), n_energies*n_angles))
 
         # this funny indexing is a result of the way I output the data from nuSQuIDS
         # it loops through energies for each angle
@@ -305,7 +306,7 @@ if mode==-1:
     That function is deprectated now, and so this one is too. 
     """
     plt.figure(2)
-    e_min=50*const.GeV
+    e_min=10*const.GeV
     e_max=10*const.PeV
     event_energies = np.logspace(np.log10(e_min),np.log10(e_max), n_bins)
 
@@ -352,7 +353,7 @@ if mode==0 or mode==1:
     This is deprecated. 
     """
 
-    e_min = 50*const.GeV
+    e_min = 10*const.GeV
     e_max = 10*const.PeV
     in_energies = np.logspace(np.log10(e_min), np.log10(e_max), n_bins)
     # the initial neutrino energy we are considering
@@ -440,7 +441,7 @@ def generate_mode2_data():
     """
     raise DeprecationWarning("This function is deprecated! ")
     print("Calculating E_i Distributions")
-    e_min = 50*const.GeV
+    e_min = 10*const.GeV
     e_max = 100*const.TeV
 
     these_energies = np.logspace(np.log10(e_min), np.log10(e_max), n_bins)  # cascade energy 
@@ -500,10 +501,10 @@ def get_2D_flux(lepton_energies, event_energies, key):
         for evt_bin in range(evt_bins):
             if event_energies[evt_bin]<lepton_energies[lep_bin]:
                 continue
-            fluxes[lep_bin][evt_bin] = data.get_flux(event_energies[evt_bin],key)
-            fluxes[lep_bin][evt_bin]*= get_diff_xs(event_energies[evt_bin], get_flavor(key), get_neut(key), get_curr(key), lepton_energies[lep_bin],0.0) 
+            fluxes[lep_bin][evt_bin] = data.get_flux(event_energies[evt_bin],key) # [GeV (in) s cm2]^-1
+            fluxes[lep_bin][evt_bin]*= get_diff_xs(event_energies[evt_bin], get_flavor(key), get_neut(key), get_curr(key), lepton_energies[lep_bin],0.0) # *[cm2/GeV (out)]
             if fluxes[lep_bin][evt_bin]<0:
-                print("what? {}".format(fluxes[lep_bin][evt_bin]))
+                print("Invalid Flux encountered {}".format(fluxes[lep_bin][evt_bin]))
     return(fluxes)
 
 def swap_to_cascade(flux, lepton_energies,cascade_energies, event_energies, key):
@@ -549,23 +550,28 @@ def swap_to_cascade(flux, lepton_energies,cascade_energies, event_energies, key)
             if (event_energies[evt_bin]-lepton_energies[lep_bin])>max(cascade_energies):
                 continue #forbidden or not useful
 
-
+            # figure out where to put the flux
             if curr=='CC':
                 if flav=="E":
-                    index = get_cascade_bin(event_energies[evt_bin]*cce_eff)
+                    if event_energies[evt_bin]*cce_eff < min(cascade_energies):
+                        continue
+                    else:
+                        index = get_cascade_bin(event_energies[evt_bin]*cce_eff)
                 else:
                     continue # track
             else: #NC
                 index = get_cascade_bin(event_energies[evt_bin] - lepton_energies[lep_bin])
+
+            # put the flux in the new bin, rescale for the 
             if index!=len(cascade_energies) and index!=-1:
-                nuflux[index][evt_bin] += flux[lep_bin][evt_bin]*lepton_widths[lep_bin]/cascade_widths[index]
+                nuflux[index][evt_bin] = nuflux[index][evt_bin] + (flux[lep_bin][evt_bin]*lepton_widths[lep_bin])#/cascade_widths[index])
                 if nuflux[index][evt_bin]<0:
                     print("Encuntered weird value {} at {},{}".format(nuflux[index][evt_bin], index, evt_bin))
             else:
-                print("Error? Key {}, event {:.2f} lepton {:.2f}".format(key, event_energies[evt_bin]/const.GeV, lepton_energies[lep_bin]/const.GeV))
+                print("Error? Key {}, event {:.2f} GeV lepton {:.2f} GeV. Index {}".format(key, event_energies[evt_bin]/const.GeV, lepton_energies[lep_bin]/const.GeV, index))
     return(nuflux)
 
-def generate_doubly_diff_fluxes(n_bins=200, debug=False):
+def generate_singly_diff_fluxes(n_bins=200, debug=False):
     """
     Newer method for working out the likely event energy based on the cascade energy 
 
@@ -580,7 +586,7 @@ def generate_doubly_diff_fluxes(n_bins=200, debug=False):
     If "debug" is True, it instead returns the og nuflux dicti
     """
     print("Generating 2D LeptonVsEvent")
-    e_min = 50*const.GeV
+    e_min = 10*const.GeV
     e_max = 100*const.TeV
     extra = 2
 
@@ -622,9 +628,9 @@ if mode==8:
     if load_stored and os.path.exists(savefile):
         event_energies, cascade_energies, from_muon, from_not = _load_data()
     else:
-        event_energies, cascade_energies, from_muon, from_not = generate_doubly_diff_fluxes(n_bins)
+        event_energies, cascade_energies, from_muon, from_not = generate_singly_diff_fluxes(n_bins)
 
-#    event_energies, cascade_energies, from_muon, from_not = generate_doubly_diff_fluxes(n_bins)
+#    event_energies, cascade_energies, from_muon, from_not = generate_singly_diff_fluxes(n_bins)
     
     from_muon = np.ma.masked_where(from_muon<=0, from_muon)
     from_not  = np.ma.masked_where(from_not<=0, from_not)
@@ -659,12 +665,12 @@ if mode==2 or mode==4:
     """
     Creates two 2D contour plots showing doubly differential event rates as a function of event and cascade energy. 
 
-    Deprecated. See generate_doubly_diff_fluxes! 
+    Deprecated. See generate_singly_diff_fluxes! 
     """
     if load_stored and os.path.exists(savefile):
         parent_energies, these_energies, muon_ones, not_muon = _load_data()
     else:
-        parent_energies, these_energies, muon_ones, not_muon = generate_doubly_diff_fluxes(n_bins)
+        parent_energies, these_energies, muon_ones, not_muon = generate_singly_diff_fluxes(n_bins)
 
     print("Plotting")
     # so it doesn't scream about logged zeros 
@@ -697,7 +703,7 @@ if mode==2 or mode==4:
         plt.savefig('not_muon.png', dpi=400)
         print("Saving not_muon.png")
     elif mode==4:
-        levels = np.logspace(-1,1,11)
+        levels = np.logspace(-2,2,11)
         plt.figure()
         cf = plt.contourf(parent_energies/const.GeV, these_energies/const.GeV, muon_ones/not_muon,cmap=cm.coolwarm, locator=ticker.LogLocator(),levels=levels)
         plt.xscale('log')
@@ -719,7 +725,7 @@ if mode==5:
     if load_stored and os.path.exists(savefile):
         parent_energies, these_energies, muon_ones, not_muon = _load_data()
     else:
-        parent_energies, these_energies, muon_ones, not_muon = generate_doubly_diff_fluxes(n_bins)
+        parent_energies, these_energies, muon_ones, not_muon = generate_singly_diff_fluxes(n_bins)
    
     cascade_widths = get_width(these_energies)/const.GeV
     parent_widths = get_width(parent_energies)/const.GeV
@@ -780,7 +786,7 @@ if mode==6:
     if load_stored and os.path.exists(savefile):
         parent_energies, these_energies, muon_ones, not_muon = _load_data()
     else:
-        parent_energies, these_energies, muon_ones, not_muon = generate_doubly_diff_fluxes(n_bins)
+        parent_energies, these_energies, muon_ones, not_muon = generate_singly_diff_fluxes(n_bins)
   
     cascade_widths = get_width(these_energies)/const.GeV
     parent_widths = get_width(parent_energies)/const.GeV
@@ -832,7 +838,7 @@ if mode==7:
 
     It was another method to recreate the results from mode 6, but ultimately encountered the same issues as mode 6.
     """
-    e_min = 50*const.GeV
+    e_min = 10*const.GeV
     e_max = 100*const.TeV
 
     cascade_energies = np.logspace(np.log10(e_min), np.log10(e_max), n_bins)  # cascade energy 
@@ -909,7 +915,7 @@ if mode==9:
     Error bands are shown representing a 1-sigma deviation 
     """
     n_bins = 200
-    parent_energies, these_energies, flux = generate_doubly_diff_fluxes(n_bins, True)
+    parent_energies, these_energies, flux = generate_singly_diff_fluxes(n_bins, True)
    
     cascade_widths = get_width(these_energies)/const.GeV
     parent_widths = get_width(parent_energies)/const.GeV
@@ -952,15 +958,19 @@ if mode==9:
         taus_expectation[index] = np.array([sigma_down, mean, sigma_up])
 
         p_muon[index] = sum(muon[index]*parent_widths)/(sum(taus[index]*parent_widths) + sum(muon[index]*parent_widths) + sum(eles[index]*parent_widths))
-        
+       
+    muon_expectation = muon_expectation.transpose()
+    eles_expectation = eles_expectation.transpose()
+    taus_expectation = taus_expectation.transpose()
+
     figs,axes = plt.subplots(nrows=2, ncols=1, sharex=True, gridspec_kw={'height_ratios':[3,1]})
 
     axes[0].fill_between( these_energies/const.GeV, muon_expectation[1]-muon_expectation[0], muon_expectation[1]+muon_expectation[2], color='#5f97c7',alpha=0.2)
     axes[0].fill_between( these_energies/const.GeV, eles_expectation[1]-eles_expectation[0], eles_expectation[1]+eles_expectation[2], color='#b31007', alpha=0.2)
-    axes[0].fill_between( these_energies/const.GeV, taus_expectation[1]-taus_expectation[0], taus_expectation[1]+taus_expectation[2], color='#86d1b2', alpha=0.2)
-    axes[0].plot( these_energies/const.GeV, muon_expectation[1], drawstyle='steps', label="Muon Origin", color='#5f97c7')
-    axes[0].plot( these_energies/const.GeV, eles_expectation[1], drawstyle='steps', label="Electron Origin", color='#b31007')
-    axes[0].plot( these_energies/const.GeV, taus_expectation[1], drawstyle='steps', label="Not Muon", color='#86d1b2')
+    axes[0].fill_between( these_energies/const.GeV, taus_expectation[1]-taus_expectation[0], taus_expectation[1]+taus_expectation[2], color='#08a605', alpha=0.2)
+    axes[0].plot( these_energies/const.GeV, muon_expectation[1], drawstyle='steps', label="Muon", color='#5f97c7')
+    axes[0].plot( these_energies/const.GeV, eles_expectation[1], drawstyle='steps', label="Electron", color='#b31007')
+    axes[0].plot( these_energies/const.GeV, taus_expectation[1], drawstyle='steps', label="Tau", color='#08a605')
     axes[1].plot(these_energies/const.GeV, p_muon)
     
     axes[0].set_xlim([5e1, 10**5])
