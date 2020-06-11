@@ -9,6 +9,41 @@ This defines a few utility functions for my plotting script.
 I moved this over here so the main plotter wasn't too busy
 """
 
+def get_nearest_entry_to( item, array_like):
+    """
+    This function takes a quantity "item" and a list/array-like item "array_like"
+    It returns the index of the entry in "array_like" that is closest to "item"
+
+    Args:
+        item - int
+        array_like - list (or tuple, np.ndarray)
+    Returns:
+        index - int. =>0, <len(array_like)
+
+    """
+    # verify datatypes
+    if not (isinstance(item,int) or isinstance(item, float)):
+        raise TypeError("Expected number-like for arg 'item', got {}".format(type(item)))
+    if not (isinstance(array_like, list) or isinstance(array_like, tuple) or isinstance(array_like,np.ndarray)):
+        raise TypeError("Expected an index-able for arg 'array_like', got {}".format(type(array_like)))
+
+    min_bin = None
+    mindist = None
+
+    # we can make no assumptions about the increasing/decreasing nature of 'array_like'
+    # so we scan over it 
+    for index in range(len(array_like)):
+        if min_bin is None:
+            min_bin = index
+            mindist = abs(array_like[index] - item)
+        else:
+            new_distance = abs(array_like[index]-item)
+            if new_distance < mindist:
+                mindist = new_distance
+                min_bin = index
+  
+    return(min_bin)
+
 def get_width( which_list ):
     """
     Takes a list 'which_list' of floats of length N, considered the centers of some bins

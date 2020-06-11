@@ -1,6 +1,6 @@
 #!/usr/bin/python3.6
 '''
-This script plots the fluxes output by the convolve cpp script
+This script plots the fluxes output by the convolve cpp script. It also does some analysis and saves some arrays to disk 
 
 But how does it work?
  1. Raw flux data from the included mceq+nuSQuIDS flux is loaded in by the Data Object. This object has functionality for sampling from the flux at arbitrary parent neutrino energy by interpolating between nsq points.
@@ -10,6 +10,12 @@ But how does it work?
 The heavy lifting goes on in the generate_singly_diff_fluxes function 
 
 Different "modes" are used to make different plots. 
+
+Notes:
+    + energies are generally in eV for consistency with nuSQuIDs
+    + widths are in GeV for consistency with nuSQuIDS (why...)
+    + the fluxes output by the Data object are in units of [GeV cm2 s]^-1 (incoming neutrino energy)
+    + the cross sections are in units of cm2/GeV (outgoing neutrino energy)
 '''
 
 from optparse import OptionParser
@@ -19,8 +25,8 @@ parser = OptionParser()
 mode_str = "0 - plot muon vs not muon\n1 - plot all the keys\n 2 - plot 2D hist of parent vs cascade"
 parser.add_option("-m", "--mode",
                 dest="mode",
-                default=0,
-                type=int,
+                default="0",
+                type=str,
                 help=mode_str)
 parser.add_option("-l", "--load_stored",
                 dest="load_stored",
@@ -39,26 +45,32 @@ debug = options.debug
 
 do_norm=False # deprecated 
 
-recognized_modes = [0,1,2,3,4,5,6,7,-1,8,9]
-if mode not in recognized_modes: 
-    raise ValueError("Unrecognized Mode: {}".format(mode))
-if mode in [-1,0,1,2,7]:
-    raise DeprecationWarning("Mode {} is deprecated".format(mode))
+if mode.lower()=='a' or mode.lower()=='all':
+    mode = 8
+    do_all = True
+    load_stored = True
+else:
+    do_all = False
+    mode = int(mode)
+    recognized_modes = [0,1,2,3,4,5,6,7,-1,8,9]
+    if mode not in recognized_modes: 
+        raise ValueError("Unrecognized Mode: {}".format(mode))
+    if mode in [-1,0,1,2,3,7]:
+        raise DeprecationWarning("Mode {} is deprecated".format(mode))
 
 
 '''
 Modes
-    0 - plot muon vs not muon (normed)
-    1 - plot all the keys (normed)
-    2 - plot 2D hist of parent vs cascade 
-    4 - PLOT 2d HIST OF parent vs cascade, doubly differential
+    Debug - Raw fluxes for the three flavors. No cross sections 
+    4 - PLOT 2d HIST OF parent vs cascade, Ratio plot
     5 - The plot showing most probable energy for muon events and non-muon events 
     6 - The plot just showing must probable energy for all of them
+    8 - Makes two 2D histograms of parent vs cascade fluxes 
+    9 - Plot of Median event energy for all three flavors 
 '''
 
 print("Configuration...")
 print("    In Mode {}".format(mode))
-print("    Will Normalize" if do_norm else "    No Norm - true fluxes")
 print("    Will Load Data" if load_stored else "    Will Generate Data")
 
 # data analysis
@@ -81,7 +93,7 @@ from cross_section_test import get_diff_xs
 import nuSQUIDSpy as nsq
 
 # specialty-made utility functions
-from utils import get_flavor, get_neut, get_curr, get_exp_std, get_width
+from utils import get_flavor, get_neut, get_curr, get_exp_std, get_width, get_nearest_entry_to
 
 const = nsq.Const()
 # colormap thing
@@ -299,12 +311,15 @@ def get_distribs_for_cascade_energy(cascade_energy, event_widths, event_energies
                             from_diffy[key][j] =data.get_flux(event_energies[j], key)*get_diff_xs(event_energies[j], get_flavor(key), get_neut(key), get_curr(key),lepton_energy[j],0.5)*event_widths[j]
     return(from_diffy, widths)
 
+
+
 if mode==-1:
     """
     This mode was made to plot the separate fluxes from the get_distribs_for_cascade_energy function
 
     That function is deprectated now, and so this one is too. 
     """
+    raise DeprecationWarning("This function is deprecated")
     plt.figure(2)
     e_min=10*const.GeV
     e_max=10*const.PeV
@@ -511,7 +526,7 @@ def swap_to_cascade(flux, lepton_energies,cascade_energies, event_energies, key)
     """
     Takes a doubly differential flux array and the lepton and event energies
 
-    Then it swaps it around to be doubly differential in cascade and event energies 
+    Then it swaps it around to be singly differential in event energy 
     """
     # we want this to follow the same trend 
     flav = key.split('_')[0]
@@ -520,35 +535,17 @@ def swap_to_cascade(flux, lepton_energies,cascade_energies, event_energies, key)
 
     # cascade vs event 
     nuflux = np.zeros((len(cascade_energies), len(event_energies)))
-
-    def get_cascade_bin( energy ):
-        """
-        Returns the appropriate bin for a provided cascade energy 
-        """
-        if energy<min(cascade_energies) or energy>max(cascade_energies):
-            return(-1)
-
-        min_diff = None
-        minbin = None
-        for i in range(len(cascade_energies)):
-            if min_diff is None:
-                min_diff = abs(energy-cascade_energies[i])
-                minbin = i
-            else:
-                if min_diff > abs(energy-cascade_energies[i]):
-                    min_diff = abs(energy-cascade_energies[i])
-                    minbin = i
-        return(minbin)
-
+ 
     lepton_widths = get_width(lepton_energies)/const.GeV
     cascade_widths = get_width(cascade_energies)/const.GeV
 
     for lep_bin in range(len(lepton_energies)):
         for evt_bin in range(len(event_energies)):
+            # some things cannot be binned
             if (event_energies[evt_bin]-lepton_energies[lep_bin])<min(cascade_energies):
-                continue #forbidden or not useful
+                continue 
             if (event_energies[evt_bin]-lepton_energies[lep_bin])>max(cascade_energies):
-                continue #forbidden or not useful
+                continue
 
             # figure out where to put the flux
             if curr=='CC':
@@ -556,14 +553,15 @@ def swap_to_cascade(flux, lepton_energies,cascade_energies, event_energies, key)
                     if event_energies[evt_bin]*cce_eff < min(cascade_energies):
                         continue
                     else:
-                        index = get_cascade_bin(event_energies[evt_bin]*cce_eff)
+                        index = get_nearest_entry_to(event_energies[evt_bin]*cce_eff, cascade_energies)
                 else:
                     continue # track
             else: #NC
-                index = get_cascade_bin(event_energies[evt_bin] - lepton_energies[lep_bin])
+                index = get_nearest_entry_to(event_energies[evt_bin] - lepton_energies[lep_bin], cascade_energies)
 
             # put the flux in the new bin, rescale for the 
             if index!=len(cascade_energies) and index!=-1:
+                # commented out the cascade widths so this is only singly differential now 
                 nuflux[index][evt_bin] = nuflux[index][evt_bin] + (flux[lep_bin][evt_bin]*lepton_widths[lep_bin])#/cascade_widths[index])
                 if nuflux[index][evt_bin]<0:
                     print("Encuntered weird value {} at {},{}".format(nuflux[index][evt_bin], index, evt_bin))
@@ -575,15 +573,15 @@ def generate_singly_diff_fluxes(n_bins=200, debug=False):
     """
     Newer method for working out the likely event energy based on the cascade energy 
 
-    Now it prepares a doubly differential flux (lepton vs event)
-    Then it transitions to a doubly differential one with respect to the cascade 
+    Now it prepares a singly differential flux (lepton vs event)
+    Then it transitions to a singly differential one with respect to the cascade 
         - it uses the lepton and event energy to get the hadronic component (or 98% of the event energy for CC e-)
         - moves the flux from the lepton bin to the corresponding cascade energy bin, and rescales according to the different lepton/cascade bin widths 
 
     Then it combines these into two 2D differential things for the "muon" ones and "not muon" ones (simple addition)
     and returns the event energies, lepton energies, and the two 2D differential arrays 
 
-    If "debug" is True, it instead returns the og nuflux dicti
+    If "debug" is True, it instead returns the dictinoary of fluxes
     """
     print("Generating 2D LeptonVsEvent")
     e_min = 10*const.GeV
@@ -623,15 +621,16 @@ def generate_singly_diff_fluxes(n_bins=200, debug=False):
     else:
         return(event_energies,cascade_energies, from_muon, from_not) 
 
-if mode==8:
+if do_all:
+    generate_singly_diff_fluxes(200)
+
+if mode==8 or do_all:
     n_bins = 200
     if load_stored and os.path.exists(savefile):
         event_energies, cascade_energies, from_muon, from_not = _load_data()
     else:
         event_energies, cascade_energies, from_muon, from_not = generate_singly_diff_fluxes(n_bins)
-
-#    event_energies, cascade_energies, from_muon, from_not = generate_singly_diff_fluxes(n_bins)
-    
+ 
     from_muon = np.ma.masked_where(from_muon<=0, from_muon)
     from_not  = np.ma.masked_where(from_not<=0, from_not)
 
@@ -661,7 +660,7 @@ if mode==8:
     print("Saving from_not.png")
 
 
-if mode==2 or mode==4:
+if mode==2 or mode==4 or do_all:
     """
     Creates two 2D contour plots showing doubly differential event rates as a function of event and cascade energy. 
 
@@ -702,7 +701,7 @@ if mode==2 or mode==4:
         plt.ylabel('Cascade Energy [GeV]', size=14)
         plt.savefig('not_muon.png', dpi=400)
         print("Saving not_muon.png")
-    elif mode==4:
+    elif mode==4 or do_all:
         levels = np.logspace(-2,2,11)
         plt.figure()
         cf = plt.contourf(parent_energies/const.GeV, these_energies/const.GeV, muon_ones/not_muon,cmap=cm.coolwarm, locator=ticker.LogLocator(),levels=levels)
@@ -715,7 +714,7 @@ if mode==2 or mode==4:
         cbar.set_label("Muon Rate / Not Muon Rate")
         print("Saving ratio_plot.png")
         plt.savefig('ratio_plot.png', dpi=400) 
-if mode==5:
+if mode==5 or do_all:
     """
     This mode prepares a plot showing the median energy of an event as a function of cascade energy.
     It has two trends, one for muons and one for everything else.
@@ -775,7 +774,7 @@ if mode==5:
     print("saving probable_energy.png")
     plt.savefig("probable_energy.png", dpi=400)
 
-if mode==6:
+if mode==6 or do_all:
     """
     In this mode, I make a two-for-one plot. We show the most probable event energy as a
         function of the cascade's energy. Underneath this plot, we show the probability 
@@ -907,7 +906,7 @@ if mode==7:
 
 
 
-if mode==9:
+if mode==9 or do_all:
     """
     This mode prepares a plot showing the median energy of an event as a function of cascade energy.
     It has separate trends for the elecrons, muons, and taus 
