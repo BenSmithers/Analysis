@@ -39,9 +39,9 @@ class bhist:
 
         # build the function needed to register additions to the hisograms 
         if len(edges)==1:
-            self._fill=np.zeros(len(self._edges))
+            self._fill=np.zeros(len(self._edges[0]))
             def register(amount, where ):
-                index = self._get_loc( where, self._edges )
+                index = self._get_loc( where, self._edges[0] )
                 if index is not None:
                     self._fill[index] += amount 
             self.register = register
@@ -81,8 +81,7 @@ class bhist:
         return(complete[0] if len(self._edges)==1 else complete)
     @property
     def fill(self):
-        complete = [[value for value in subfill] for subfill in self._fill]
-        return(complete if len(self._fill)!=1 else complete[0])
+        return(self._fill)
 
 def get_nearest_entry_to( item, array_like):
     """
