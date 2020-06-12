@@ -1,4 +1,4 @@
-import nuSQUIDSpy as nsq
+# import nuSQUIDSpy as nsq
 from math import sqrt
 
 import numpy as np
@@ -30,31 +30,32 @@ class bhist:
         if not(len(edges)==1 or len(edges)==2):
             raise ValueError("Arg 'edges' should be of length 1 or 2, depending on imensionality of desired bhist")
         for entry in edges:
-            if not (isinstance(entry, list) or isinstance(entry, tuple) or isinstance(entry, np.npdarray)):
+            if not (isinstance(entry, list) or isinstance(entry, tuple) or isinstance(entry, np.ndarray)):
                 raise TypeError("Each entry in 'edges' should be list-like, found {}".format(type(entry)))
             if len(entry)<2:
                 raise ValueError("Entries in 'edges' must be at least length 2, got {}".format(len(entry)))
         
         self._edges = np.sort(edges) # each will now be increasing
-        self._fill = np.zeros(np.shape(edges))
 
         # build the function needed to register additions to the hisograms 
         if len(edges)==1:
-            def register( amount, where ):
+            self._fill=np.zeros(len(self._edges))
+            def register(amount, where ):
                 index = self._get_loc( where, self._edges )
                 if index is not None:
                     self._fill[index] += amount 
             self.register = register
         
         else: # length 2
-            def register( amount, xloc, yloc ):
+            self._fill = np.zeros((len(self._edges[0]), len(self._edges[1])))
+            def register(amount, xloc, yloc ):
                 xbin = self._get_loc( xloc, self._edges[0] )
                 ybin = self._get_loc( yloc, self._edges[1] )
                 if (xbin is not None) and (ybin is not None):
                     self._fill[xbin][ybin]+=amount
             self.register = register
 
-    def _get_loc(value, edges):
+    def _get_loc(self, value, edges):
         if value<edges[0] or value>edges[-1]:
             return
         else:
@@ -69,19 +70,19 @@ class bhist:
     @property
     def centers(self):
         complete = [ [0.5*(subedge[i+1]+subedge[i]) for i in range(len(subedge)-1)] for subedge in self._edges]
-        return(complete[0] if self._edges==1 else complete)
+        return(complete[0] if len(self._edges)==1 else complete)
     @property
     def edges(self):
         complete = [[value for value in subedge] for subedge in self._edges]
-        return(complete[0] if self._edges==1 else complete)
+        return(complete[0] if len(self._edges)==1 else complete)
     @property
     def widths(self):
         complete = [[abs(subedges[i+1]-subedges[i]) for i in range(len(subedges)-1)] for subedges in self._edges]
-        return(complete[0] if self._edges==0 else complete)
+        return(complete[0] if len(self._edges)==1 else complete)
     @property
     def fill(self):
         complete = [[value for value in subfill] for subfill in self._fill]
-        return(complete if self._fill!=1 else complete[0])
+        return(complete if len(self._fill)!=1 else complete[0])
 
 def get_nearest_entry_to( item, array_like):
     """
