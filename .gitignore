@@ -136,3 +136,5 @@ dmypy.json
 *.hdf5
 *.dat
 *.swp
+
+nusquids_stuff/convolve/atmosphere.txt
