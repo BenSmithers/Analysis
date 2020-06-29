@@ -235,7 +235,7 @@ int main(){
         if (angle_deg > 180.){
             angle_deg = 180.;
         }
-        std::string command("python mceq_flux.py ");
+        std::string command("python3 mceq_flux.py ");
         command += std::to_string(angle_deg); // append the zenith angle to the end of this as an argument to the python script 
         std::cout << " ===> Generating new flux file at "<<angle_deg<<std::endl;
         system(command.c_str()); // call the python script to generate the flux
