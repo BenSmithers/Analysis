@@ -1,4 +1,4 @@
-# import nuSQUIDSpy as nsq
+import nuSQUIDSpy as nsq
 from math import sqrt
 
 import numpy as np
@@ -39,7 +39,7 @@ class bhist:
 
         # build the function needed to register additions to the hisograms 
         if len(edges)==1:
-            self._fill=np.zeros(len(self._edges[0]))
+            self._fill=np.zeros(len(self._edges[0])-1)
             def register(amount, where ):
                 index = self._get_loc( where, self._edges[0] )
                 if index is not None:
@@ -47,7 +47,7 @@ class bhist:
             self.register = register
         
         else: # length 2
-            self._fill = np.zeros((len(self._edges[0]), len(self._edges[1])))
+            self._fill = np.zeros((len(self._edges[0])-1, len(self._edges[1])-1))
             def register(amount, xloc, yloc ):
                 xbin = self._get_loc( xloc, self._edges[0] )
                 ybin = self._get_loc( yloc, self._edges[1] )
@@ -56,6 +56,9 @@ class bhist:
             self.register = register
 
     def _get_loc(self, value, edges):
+        """
+        Private function used by the register function. Takes a value and bin edges, both along some axis, and it returns which bin the value is in. 
+        """
         if value<edges[0] or value>edges[-1]:
             return
         else:
