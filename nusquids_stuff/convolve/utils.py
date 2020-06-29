@@ -44,6 +44,7 @@ class bhist:
                 index = self._get_loc( where, self._edges[0] )
                 if index is not None:
                     self._fill[index] += amount 
+                    return(index)
             self.register = register
         
         else: # length 2
@@ -53,6 +54,7 @@ class bhist:
                 ybin = self._get_loc( yloc, self._edges[1] )
                 if (xbin is not None) and (ybin is not None):
                     self._fill[xbin][ybin]+=amount
+                    return(xbin,ybin)
             self.register = register
 
     def _get_loc(self, value, edges):
