@@ -20,9 +20,17 @@ Notes:
 
 from optparse import OptionParser
 import sys
+mode_str = "\nModes\n\
+Debug - Raw fluxes for the three flavors. No cross sections\n \
+4 - PLOT 2d HIST OF parent vs cascade, Ratio plot\n \
+5 - The plot showing most probable energy for muon events and non-muon events\n \
+6 - The plot just showing must probable energy for all of them\n \
+8 - Makes two 2D histograms of parent vs cascade fluxes\n \
+9 - Plot of Median event energy for all three flavors\n \
+"
 
 parser = OptionParser()
-mode_str = "0 - plot muon vs not muon\n1 - plot all the keys\n 2 - plot 2D hist of parent vs cascade"
+#mode_str = "0 - plot muon vs not muon\n1 - plot all the keys\n 2 - plot 2D hist of parent vs cascade"
 parser.add_option("-m", "--mode",
                 dest="mode",
                 default="0",
@@ -63,17 +71,6 @@ else:
         raise ValueError("Unrecognized Mode: {}".format(mode))
     if mode in [-1,0,1,2,3,7]:
         raise DeprecationWarning("Mode {} is deprecated".format(mode))
-
-
-'''
-Modes
-    Debug - Raw fluxes for the three flavors. No cross sections 
-    4 - PLOT 2d HIST OF parent vs cascade, Ratio plot
-    5 - The plot showing most probable energy for muon events and non-muon events 
-    6 - The plot just showing must probable energy for all of them
-    8 - Makes two 2D histograms of parent vs cascade fluxes 
-    9 - Plot of Median event energy for all three flavors 
-'''
 
 print("Configuration...")
 print("    In Mode {}".format(mode))
@@ -533,6 +530,7 @@ def get_2D_flux(energies, key):
                 print("Invalid Flux encountered {}".format(fluxes[lep_bin][evt_bin]))
     return(fluxes)
 
+
 def swap_to_cascade(flux, orig_hist, cascade_edges, key):
     """
     Takes a doubly differential flux array and the lepton and event energies
@@ -560,12 +558,6 @@ def swap_to_cascade(flux, orig_hist, cascade_edges, key):
 
     for lep_bin in range(len(lepton_energies)):
         for evt_bin in range(len(event_energies)):
-            # These are outside of the extent of the cascade energy 
-            if (event_energies[evt_bin]-lepton_energies[lep_bin])<min(cascade_edges):
-                continue 
-            if (event_energies[evt_bin]-lepton_energies[lep_bin])>max(cascade_edges):
-                continue
-
             # figure out where to put the flux
             if curr=='CC':
                 if flav=="E":
@@ -574,11 +566,86 @@ def swap_to_cascade(flux, orig_hist, cascade_edges, key):
                     continue # track
             else: #NC
                 deposited_energy = (event_energies[evt_bin] - lepton_energies[lep_bin])
+        
+            if deposited_energy>max(cascade_edges):
+                continue
+            if deposited_energy<min(cascade_edges):
+                continue
 
             cascade_level.register( flux[lep_bin][evt_bin]*lepton_widths[lep_bin], deposited_energy, event_energies[evt_bin])
     return(cascade_level.fill)
 
-def generate_singly_diff_fluxes(n_bins, debug=False):
+
+def do_for_key(event_edges,cascade_edges, key):
+    evt = bhist([event_edges])
+    cas = bhist([cascade_edges])
+
+    event_energies = evt.centers
+    event_widths = evt.widths
+    cascade_energies = cas.centers
+    cascade_widths = cas.widths
+
+    flav = key.split("_")[0]
+    curr = key.split("_")[2]
+
+    flux = bhist((cascade_edges, event_edges))
+
+    if curr=="CC":
+        for cas_bin in range(len(cascade_energies)):
+            deposited_energy = cascade_energies[cas_bin]
+            
+            amount =data.get_flux(deposited_energy,key)
+            amount *= get_diff_xs(deposited_energy, get_flavor(key), get_neut(key), get_curr(key))#/cascade_widths[cas_bin]
+            flux.register( amount, deposited_energy, deposited_energy)
+
+    else:
+        for evt_bin in range(len(event_energies)):
+            for cas_bin in range(len(cascade_energies)):
+                lepton_energy = event_energies[evt_bin] - cascade_energies[cas_bin]
+
+                if lepton_energy < min(cascade_energies):
+                    continue
+                if lepton_energy > max(cascade_energies):
+                    continue
+
+                amount =data.get_flux(event_energies[evt_bin],key)
+                amount *= get_diff_xs(event_energies[evt_bin], get_flavor(key), get_neut(key), get_curr(key), lepton_energy,0.0)*cascade_widths[cas_bin]
+                flux.register(amount, cascade_energies[cas_bin], event_energies[evt_bin])
+
+    return(flux.fill)
+
+def generate_singly_diff_fluxes(n_bins,debug=False):
+    e_min = 10*const.GeV
+    e_max = 100*const.TeV
+    extra = 2
+    
+    event_edges = np.logspace(np.log10(e_min), np.log10(e_max)+extra,n_bins+1)
+    cascade_edges = np.logspace(np.log10(e_min), np.log10(e_max),n_bins+1)
+    from_muon = np.zeros((n_bins,n_bins))
+    from_not = np.zeros((n_bins,n_bins))
+    nuflux = {}
+
+    for flav in flavors:
+        for neut in neuts:
+            for curr in currents:
+                key = flav+"_"+neut+"_"+curr
+                if curr=="CC" and (flav=="Mu" or flav=="Tau"):
+                    continue
+                else:
+                    nuflux[key] = do_for_key(event_edges,cascade_edges,key)
+                if flav=="Mu":
+                    from_muon+=nuflux[key]
+                else:
+                    from_not+=nuflux[key]
+    
+    _save_data( event_edges, cascade_edges, from_muon, from_not)
+    if debug:
+        return(event_edges,cascade_edges, nuflux)    
+    else:
+        return(event_edges,cascade_edges, from_muon, from_not) 
+
+
+def generate_singly_diff_fluxes_old(n_bins, debug=False):
     """
     Newer method for working out the likely event energy based on the cascade energy 
 
