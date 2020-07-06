@@ -1,4 +1,4 @@
-# import nuSQUIDSpy as nsq
+import nuSQUIDSpy as nsq
 from math import sqrt
 
 import numpy as np
@@ -17,11 +17,19 @@ class IllegalArguments(ValueError):
 
 class bhist:
     """
-    It's a 1D or 2D histogram! 
+    It's a 1D or 2D histogram! BHist is for "Ben Hist" or "Binned Hist" depending on who's asking. 
+
+    I made this so I could have a binned histogram that could be used for adding more stuff at arbitrary places according to some "edges" it has. The object would handle figuring out which of its bins would hold the stuff. 
+
+    Also made with the potential to store integers, floats, or whatever can be added together and has both an additive rule and some kind of identity element correlated with the default constructor. 
+        If a non-dtype entry is given, it will be explicitly cast to the dtype. 
     """
-    def __init__(self,edges):
+    def __init__(self,edges, dtype=float):
         """
-        Arg 'edges' should be a tuple of length 1 or 2. Length 1 for 1D hist, and length 2 for 2D hist
+        Arg 'edges' should be a tuple of length 1 or 2. Length 1 for 1D hist, and length 2 for 2D hist. 
+        These edges represent the bin edges. 
+
+        The type-checking could use a bit of work... Right now for 1D histograms you need to give it a length-1 list. 
         """
 
         if not (isinstance(edges, list) or isinstance(edges, tuple) or isinstance(edges, np.ndarray)):
@@ -35,27 +43,55 @@ class bhist:
             if len(entry)<2:
                 raise ValueError("Entries in 'edges' must be at least length 2, got {}".format(len(entry)))
         
-        self._edges = np.sort(edges) # each will now be increasing
+        self._edges = np.sort(edges) # each will now be increasing. I think this is Quicksort? 
+        self._dtype = dtype
 
-        # build the function needed to register additions to the hisograms 
+        # Ostensibly you can bin strings... not sure why you would, but you could! 
+        try:
+            x = dtype() + dtype()
+        except Exception:
+            raise TypeError("It appears impossible to add {} together.".format(dtype))
+
+        # build the function needed to register additions to the histograms.
+        # Come to think of it, this would also be doable with a single function using an *args implementation to an arbitrary dimensionality... TODO! 
         if len(edges)==1:
-            self._fill=np.zeros(len(self._edges[0]))
-            def register(amount, where ):
+            self._fill=[self._dtype() for i in range(len(self._edges[0])-1)]
+            def register(amt, where):
+                # make sure it's the right datatype, if not try casting it
+                if not isinstance(amt, self._dtype):
+                    try:
+                        amount = self._dtype(amt)
+                    except TypeError:
+                        raise TypeError("Expected {}, got {}. Tried casting to {}, but failed.".format(self._dtype, type(amt), self._dtype))
+                else:
+                    amount = amt
                 index = self._get_loc( where, self._edges[0] )
                 if index is not None:
                     self._fill[index] += amount 
-            self.register = register
+                    return(index)
+            self.register = register 
         
         else: # length 2
-            self._fill = np.zeros((len(self._edges[0]), len(self._edges[1])))
-            def register(amount, xloc, yloc ):
+            self._fill = [[self._dtype() for i in range(len(self._edges[0])-1)] for j in range(len(self._edges[1])-1)]
+            def register(amt, xloc, yloc ):
+                if not isinstance(amt, self._dtype):
+                    try:
+                        amount = self._dtype(amt)
+                    except TypeError:
+                        raise TypeError("Expected {}, got {}. Tried casting to {}, but failed.".format(self._dtype, type(amt), self._dtype))
+                else:
+                    amount = amt
                 xbin = self._get_loc( xloc, self._edges[0] )
                 ybin = self._get_loc( yloc, self._edges[1] )
                 if (xbin is not None) and (ybin is not None):
                     self._fill[xbin][ybin]+=amount
+                    return(xbin,ybin)
             self.register = register
 
     def _get_loc(self, value, edges):
+        """
+        Private function used by the register function. Takes a value and bin edges, both along some axis, and it returns which bin the value is in. (or None if it's out-of-bounds)
+        """
         if value<edges[0] or value>edges[-1]:
             return
         else:
@@ -67,6 +103,7 @@ class bhist:
             return(scan)
             self._fill[scan]+=value 
 
+    # some access properties. Note these aren't function calls. They are accessed like "object.centers" 
     @property
     def centers(self):
         complete = [ [0.5*(subedge[i+1]+subedge[i]) for i in range(len(subedge)-1)] for subedge in self._edges]
@@ -82,6 +119,20 @@ class bhist:
     @property
     def fill(self):
         return(self._fill)
+
+def extract_from_edges(edges):
+    """
+    Takes list-like representing the edges of a bhist, returns the widths and centers 
+    """
+    if not (isinstance(edges, list) or isinstance(edges,np.ndarray) or isinstance(edges, tuple)):
+        raise TypeError("Can't make bhist from {}, need {}".format(type(edges, list)))
+
+    temp = bhist([edges])
+
+    centers = np.array(temp.centers)
+    widths = np.array(temp.widths)
+
+    return( centers, widths )
 
 def get_nearest_entry_to( item, array_like):
     """
