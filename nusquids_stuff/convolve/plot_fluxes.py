@@ -4,8 +4,7 @@ This script plots the fluxes output by the convolve cpp script. It also does som
 
 But how does it work?
  1. Raw flux data from the included mceq+nuSQuIDS flux is loaded in by the Data Object. This object has functionality for sampling from the flux at arbitrary parent neutrino energy by interpolating between nsq points.
- 2. This flux data is convolved with differential cross sections to create a incoming V outgoing doubly differential flux-rate array
- 3. The DD flux array is converted to be a incoming vs cascade doubly differential flux-rate array, respecting cascade energy differences wrt flavor/interaction
+ 2. This flux data is convolved with some cross sections to make a singly-differential flux array of deposited energy vs event energy 
 
 The heavy lifting goes on in the generate_singly_diff_fluxes function 
 
@@ -174,7 +173,7 @@ class Data:
         '''
         interpolates between entries in the flux dictionary to return the flux at arbitrary energy
         Energy should be in units of eV
-        Flux is in units of /cm2/GeV/s 
+        Flux is in units of /cm2/GeV/s  (incoming energy, bin width!) 
 
         returns DOUBLE  (0.0 if beyond scope of data)
         '''
@@ -507,6 +506,8 @@ def get_2D_flux(energies, key):
     #if not (isinstance(event_energies, list) or isinstance(event_energies, np.ndarray)):
     #    raise TypeError("Expected {} for 'event_energies', got {}".format(np.ndarray, type(event_energies)))
     
+    raise DeprecationWarning("This had some issues, so I'm retiring it.")
+
     if not isinstance(key, str):
         raise TypeError("Expected {} for key, got {}".format(str, type(key)))
 
@@ -537,6 +538,7 @@ def swap_to_cascade(flux, orig_hist, cascade_edges, key):
 
     Then it swaps it around to be singly differential in event energy 
     """
+    raise DeprecationWarning("Had issues, retired now")
     # we want this to follow the same trend 
     flav = key.split('_')[0]
     curr = key.split('_')[2]
@@ -591,18 +593,25 @@ def do_for_key(event_edges,cascade_edges, key):
     flux = bhist((cascade_edges, event_edges))
 
     if curr=="CC":
+        # deposit all the energy. Hadronic and Leptonic (event) contribute 
+        # Since the energy always all gets deposited, we only need to do one loop!
+        # So, for a given "deposited energy" (cascade_energy), we already know the total energy. 
+        # Therefore we just get the total cross section * flux there... the units end up as [s GeV in]^-1 
         for cas_bin in range(len(cascade_energies)):
             deposited_energy = cascade_energies[cas_bin]
             
             amount =data.get_flux(deposited_energy,key)
-            amount *= get_diff_xs(deposited_energy, get_flavor(key), get_neut(key), get_curr(key))#/cascade_widths[cas_bin]
-            flux.register( amount, deposited_energy, deposited_energy)
+            amount *= get_diff_xs(deposited_energy, get_flavor(key), get_neut(key), get_curr(key))
+            flux.register( amount, deposited_energy, deposited_energy) # add it in! 
 
     else:
+        # in this case, knowing the cascade doesn't tell us anything about the event energy. 
+        # so we loop over both, get the flux*differential_xs at each bin combination, and multiply by the widths of deposited-energy-bin to get the same units as in the CC case 
         for evt_bin in range(len(event_energies)):
             for cas_bin in range(len(cascade_energies)):
                 lepton_energy = event_energies[evt_bin] - cascade_energies[cas_bin]
 
+                # we'll have nowhere to put these, so let's just skip this
                 if lepton_energy < min(cascade_energies):
                     continue
                 if lepton_energy > max(cascade_energies):
@@ -612,9 +621,15 @@ def do_for_key(event_edges,cascade_edges, key):
                 amount *= get_diff_xs(event_energies[evt_bin], get_flavor(key), get_neut(key), get_curr(key), lepton_energy,0.0)*cascade_widths[cas_bin]
                 flux.register(amount, cascade_energies[cas_bin], event_energies[evt_bin])
 
-    return(flux.fill)
+    return(flux.fill) # for context, this returns a 2D list of the fluxes at each bin
 
 def generate_singly_diff_fluxes(n_bins,debug=False):
+    """
+    This is the newest, most streamlined function for generating the singly-differential flux arrays. 
+    It has the same functionality as the old ones, but now it skips the step of filling in the regular flux array before swapping to the deposited energy flux array. 
+
+
+    """
     e_min = 10*const.GeV
     e_max = 100*const.TeV
     extra = 2
@@ -629,7 +644,7 @@ def generate_singly_diff_fluxes(n_bins,debug=False):
         for neut in neuts:
             for curr in currents:
                 key = flav+"_"+neut+"_"+curr
-                if curr=="CC" and (flav=="Mu" or flav=="Tau"):
+                if curr=="CC" and (flav=="Mu" or flav=="Tau"): # we might not want to skip Taus? How are tau cascade energies calculated? 
                     continue
                 else:
                     nuflux[key] = do_for_key(event_edges,cascade_edges,key)
@@ -647,8 +662,6 @@ def generate_singly_diff_fluxes(n_bins,debug=False):
 
 def generate_singly_diff_fluxes_old(n_bins, debug=False):
     """
-    Newer method for working out the likely event energy based on the cascade energy 
-
     Now it prepares a singly differential flux (lepton vs event)
     Then it transitions to a singly differential one with respect to the cascade 
         - it uses the lepton and event energy to get the hadronic component (or 98% of the event energy for CC e-)
@@ -659,6 +672,7 @@ def generate_singly_diff_fluxes_old(n_bins, debug=False):
 
     If "debug" is True, it instead returns the dictinoary of fluxes
     """
+    raise DeprecationWarning("This method has bin width issues, so I'm retiring it.")
     print("Generating 2D LeptonVsEvent")
     e_min = 10*const.GeV
     e_max = 100*const.TeV
@@ -715,9 +729,9 @@ if mode==8 or do_all:
     from_not  = np.ma.masked_where(from_not<=0, from_not)
 
     plt.figure()
-    levels = np.logspace(-70,-40,10)
+    levels = np.logspace(-50,-33,10)
     print("Max of muon: {}".format(np.max(from_muon)))
-    cf = plt.contourf(event_energies/const.GeV, cascade_energies/const.GeV, from_muon,cmap=cm.coolwarm, locator=ticker.LogLocator())#, levels=levels)
+    cf = plt.contourf(event_energies/const.GeV, cascade_energies/const.GeV, from_muon,cmap=cm.coolwarm, locator=ticker.LogLocator(), levels=levels)
     plt.xscale('log')
     plt.yscale('log')
     plt.xlabel('Parent Energy [GeV]', size=14)
@@ -728,7 +742,7 @@ if mode==8 or do_all:
     print("saving from_muon.png")
     plt.savefig('from_muon.png', dpi=400)
     plt.clf()
-    cf = plt.contourf(event_energies/const.GeV, cascade_energies/const.GeV, from_not,cmap=cm.coolwarm, locator=ticker.LogLocator())#, levels=levels)
+    cf = plt.contourf(event_energies/const.GeV, cascade_energies/const.GeV, from_not,cmap=cm.coolwarm, locator=ticker.LogLocator(), levels=levels)
     cbar = plt.colorbar(cf,ticks=ticker.LogLocator())
     cbar.set_label(r"$dN/(dE_{f}dE_{i})$ [s$^{-1}$GeV$^{-2}$]")
     plt.grid(which='major',alpha=0.7)
@@ -849,7 +863,8 @@ if mode==5 or do_all:
     axes[0].set_xlim([5e1, 10**5])
     axes[1].set_xlim([5e1, 10**5])
     axes[0].set_ylim([10**1, 10**7])
-    axes[1].set_ylim([1e-4,1])
+    axes[1].set_ylim([0,1])
+    axes[1].yaxis.set_ticks(np.linspace(0,1,6))
     axes[0].grid('major', alpha=0.5 )
     axes[0].legend()
 
@@ -913,7 +928,8 @@ if mode==6 or do_all:
     axes[0].set_xlim([5e1, 10**5])
     axes[1].set_xlim([5e1, 10**5])
     axes[0].set_ylim([10**1, 10**7])
-    axes[1].set_ylim([1e-4,1])
+    axes[1].set_ylim([0,1])
+    axes[1].yaxis.set_ticks(np.linspace(0,1,6))
     axes[0].grid('major', alpha=0.5 )
 
     axes[0].set_yscale('log')
@@ -932,6 +948,7 @@ if mode==7:
 
     It was another method to recreate the results from mode 6, but ultimately encountered the same issues as mode 6.
     """
+    raise DeprecationWarning("Stahp.")
     e_min = 10*const.GeV
     e_max = 100*const.TeV
 
@@ -986,8 +1003,9 @@ if mode==7:
     axes[0].set_xlim([5e1, 10**5])
     axes[1].set_xlim([5e1, 10**5])
     axes[0].set_ylim([10**1, 10**7])
-    axes[1].set_ylim([1e-4,1])
+    axes[1].set_ylim([0,1])
     axes[0].grid('major', alpha=0.5 )
+    axes[1].yaxis.set_ticks(np.linspace(0,1,6))
 
     axes[0].set_yscale('log')
     axes[0].set_xscale('log')
@@ -1075,7 +1093,8 @@ if mode==9 or do_all:
     axes[0].set_xlim([5e1, 10**5])
     axes[1].set_xlim([5e1, 10**5])
     axes[0].set_ylim([10**1, 10**7])
-    axes[1].set_ylim([1e-4,1])
+    axes[1].set_ylim([0,1])
+    axes[1].yaxis.set_ticks(np.linspace(0,1,6))
     axes[0].grid('major', alpha=0.5 )
     axes[0].legend()
 
