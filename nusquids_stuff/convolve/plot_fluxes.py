@@ -579,6 +579,11 @@ def swap_to_cascade(flux, orig_hist, cascade_edges, key):
 
 
 def do_for_key(event_edges,cascade_edges, key):
+    """
+    This function takes the desired bin edges for the event energies and deposited energies along with the dictionary key corresponding to a specific combination of falvor, current, and neutrino type.
+
+    It builds up the 2D flux array (singly differential), which it then returns 
+    """
     evt = bhist([event_edges])
     cas = bhist([cascade_edges])
 
