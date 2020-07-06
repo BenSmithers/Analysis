@@ -120,6 +120,20 @@ class bhist:
     def fill(self):
         return(self._fill)
 
+def extract_from_edges(edges):
+    """
+    Takes list-like representing the edges of a bhist, returns the widths and centers 
+    """
+    if not (isinstance(edges, list) or isinstance(edges,np.ndarray) or isinstance(edges, tuple)):
+        raise TypeError("Can't make bhist from {}, need {}".format(type(edges, list)))
+
+    temp = bhist([edges])
+
+    centers = np.array(temp.centers)
+    widths = np.array(temp.widths)
+
+    return( centers, widths )
+
 def get_nearest_entry_to( item, array_like):
     """
     This function takes a quantity "item" and a list/array-like item "array_like"
