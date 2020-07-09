@@ -5,14 +5,21 @@ from matplotlib import pyplot
 
 # ========================== Loop Review =============================
 
-# While Loop 
+# great for when you need to do one thing a lot of times 
+
+# ====== While Loop 
+# while <condition>:
+    # do this
 
 x = 0
 while x < 10:
     print(x) 
     x = x + 1
 
-# For Loop
+# ====== For loop
+
+# for each_entry in list_like:
+    # do stuff. 
 
 backpack = ['book','pen','eraser']
 for item in backpack:
@@ -25,6 +32,10 @@ for item in backpack:
     for letter in item:
         if letter in vowels:
             vowels_counted += 1
+
+# loop over list incl [0,1,...,9]. Print square of entry
+for item in range(10):
+    print(item**2)
 
 # ========================== SOLUTIONS ================================
 
@@ -56,9 +67,10 @@ while iterate < number:
     iterate += 1
 
 # make histograms 
+bins = numpy.linspace(0,1000,101)
 
-pyplot.hist(energies_first, numpy.linspace(0,1000,100))
-pyplot.hist(energies_second, numpy.linspace(0,1000,100))
+pyplot.hist(energies_first, bins)
+pyplot.hist(energies_second, bins)
 pyplot.xlabel("Energy [GeV]")
 pyplot.ylabel("Count")
 pyplot.show()
