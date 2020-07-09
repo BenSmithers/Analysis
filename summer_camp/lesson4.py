@@ -21,14 +21,14 @@ while x < 10:
 # for each_entry in list_like:
     # do stuff. 
 
-backpack = ['book','pen','eraser']
-for item in backpack:
+proton = ['up', 'up', 'down', 'gluon']
+for item in proton:
     print(item)
 
-# how many vowels are in the backpack?
+# how many vowels are in the proton?
 vowels = ['a', 'e', 'i', 'o', 'u']
 vowels_counted = 0
-for item in backpack:
+for item in proton:
     for letter in item:
         if letter in vowels:
             vowels_counted += 1
