@@ -55,19 +55,21 @@ print(temp)
 # hist energy of highest pt Lep
 
 # get list of energies
+# so first we make two numpy arrays  which we'll use to store the energies 
 number = len(Events)
-energies_first  = numpy.arange(number)
-energies_second = numpy.arange(number)
+energies_first  = numpy.zeros(number)
+energies_second = numpy.zeros(number)
 
 iterate = 0
 while iterate < number:
+    # then we loop over all the events and assign energies to our new arrays
     energies_first[iterate]  = Events[iterate][5]
     energies_second[iterate] = Events[iterate][11]
 
     iterate += 1
 
 # make histograms 
-bins = numpy.linspace(0,1000,101)
+bins = numpy.linspace(0,1000,101) #note! We use 101, since this is the number of edges and not bins! 
 
 pyplot.hist(energies_first, bins)
 pyplot.hist(energies_second, bins)
@@ -77,13 +79,14 @@ pyplot.show()
 
 # Ex 4 - 15 minutes  
 
-# values
+# Some counters we can use. Basically just integers. 
 plus_plus   = 0
 minus_minus = 0
 plus_minus  = 0
 minus_plus  = 0
 
 iterate = 0
+# we loop over all the events, and count them up! 
 while iterate < number:
     event = Events[iterate]
     
@@ -106,21 +109,25 @@ print("Plus Minus: {}".format(plus_minus))
 print("Minus Minus: {}".format(minus_minus))
 
 # Ex 5 - 15 minutes
-
+# this one's a lot trickier! 
+# we prepare some empty lists 
 two_mu = []
 two_el = []
 mu_el  = []
 
 iterate = 0
 while iterate < number:
+    # loop over the events
+    # check what kind of event it is, then append the whole event to the relevant list 
     event = Events[iterate]
-    if abs(event[7])==11 and abs(event[13])==11:
+    if abs(event[7])==11 and abs(event[13])==11: # two electrons
         two_el.append(event)
     
-    if abs(event[7])==13 and abs(event[13])==13:
+    if abs(event[7])==13 and abs(event[13])==13: # two muons 
         two_mu.append(event)
     
     if (abs(event[7])==11 and abs(event[13])==13) or (abs(event[7])==13 and abs(event[13])==11):
+        # electron and muon OR muon and electron
         mu_el.append(event)
 
     iterate += 1
@@ -130,7 +137,7 @@ print("Two El: {}".format(len(two_el)))
 print("Combo: {}".format(len(mu_el)))
 
 # Ex 6 - 3 minutes
-
+# save the files
 numpy.savetxt("two_mu.txt",two_mu)
 numpy.savetxt("two_el.txt",two_el)
 numpy.savetxt("mu_el.txt",mu_el)
@@ -138,8 +145,11 @@ numpy.savetxt("mu_el.txt",mu_el)
 ### =========================== Alternate Solutions =====================================
 print("Starting Alternates!")
 
+# these are some other, weirder ways, we can solve the exercises
+
 # Ex 3
 
+# look up python list comprehension! It's fun 
 energies  = numpy.transpose([[evt[5], evt[11]] for evt in Events])
 
 pyplot.hist(energies[0], numpy.linspace(0,1000,100))
