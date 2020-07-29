@@ -118,12 +118,12 @@
         "nubarXSWidth":0.075,
         "nuXSCenter":1,
         "nuXSWidth":0.03
-    }
+    },
     "seeds":{
-        "convNorm":[1.,0.05,0.9,1.1],
-        "CRDeltaGamma":[0.,0.005,-0.02,0.02],
+        "convNorm":[1.0,0.05,0.9,1.1],
+        "CRDeltaGamma":[0.0,0.005,-0.02,0.02],
         "domEfficiency":[1.27,0.005,1.255,1.285],
-        "holeiceForward":[-1,0.5,-3.,1.],
+        "holeiceForward":[-1,0.5,-3.0,1.0],
         "zenithCorrection":[0.0 ,0.5 , -1.5,1.5],
         "barrWM":[0,0.08,-0.5,0.5],
         "barrWP":[0,0.08,-0.5,0.5],
@@ -132,14 +132,14 @@
         "barrZM":[0,0.025,-0.25,0.5],
         "barrZP":[0,0.025,-0.2,0.5],
         "icegrad0":[0.0,0.0],
-        "icegrad1":[0.,0.],
-        "promptNorm":[1.,0.],
-        "astroNorm":[0.7866666666666666,0.],
-        "astroDeltaGamma":[0.,0.005,-0.5,0.5],
-        "astroDeltaGammaSec":[0.,0.005,-0.5,0.5],
+        "icegrad1":[0.0,0.0],
+        "promptNorm":[1.0,0.0],
+        "astroNorm":[0.7866666666666666,0.0],
+        "astroDeltaGamma":[0.0,0.005,-0.5,0.5],
+        "astroDeltaGammaSec":[0.0,0.005,-0.5,0.5],
         "astroSigma":[0.5,0.01,0,1],
-        "nuxs":[1.,0.],
-        "nubarxs":[1.,0.],
-        "kaonLosses":[0.,0.]        
+        "nuxs":[1.0,0.0],
+        "nubarxs":[1.0,0.0],
+        "kaonLosses":[0.0,0.0]        
     }
 }
