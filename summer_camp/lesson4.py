@@ -85,6 +85,9 @@ minus_minus = 0
 plus_minus  = 0
 minus_plus  = 0
 
+same_sign = []
+opp_sign = []
+
 iterate = 0
 # we loop over all the events, and count them up! 
 while iterate < number:
@@ -93,16 +96,22 @@ while iterate < number:
     if event[6]>0:
         if event[12]>0:
             plus_plus += 1
+            same_sign.append(event)
         else:
             plus_minus += 1 
+            opp_sign.append(event)
     else:
         if event[12]>0:
             minus_plus += 1
+            opp_sign.append(event)
         else:
             minus_minus += 1
+            same_sign.append(event)
 
     iterate += 1
 
+numpy.savetxt("same_sign.txt", same_sign)
+numpy.savetxt("opp_sign.txt",opp_sign)
 print("Both plus: {}".format(plus_plus))
 print("Minus Plus: {}".format(minus_plus))
 print("Plus Minus: {}".format(plus_minus))
