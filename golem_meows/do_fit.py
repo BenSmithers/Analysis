@@ -47,6 +47,9 @@ flags_config    = explicit_convert(config['fitflags'])
 priors_config   = explicit_convert(config['priors'])
 raw_seeds=config['seeds']
 
+# what kind of fit are we doing?
+steering_params.diffuse_fit_type = gf.DiffuseFitType.BrokenPowerLaw
+
 # use the loaded parameters to seed the RNG (Affects seed generation)
 random.seed(parameters['rng_seed'])
 
@@ -86,7 +89,6 @@ set_GF(npp, parse_point(point))
 #This sets up special settings for the steering parameters that aren't caught by the 
 #        universal json applicator (set_GF)
 
-steering_params.diffuse_fit_type = gf.DiffuseFitType.BrokenPowerLaw
 steering_params.fullLivetime = {0: float(parameters['years'])*365*24*60*60}
 steering_params.sterile_model_label = point
 steering_params.spline_hqdom_efficiency = bool(parameters['systematics'][7])
@@ -94,6 +96,17 @@ steering_params.load_barr_gradients = '1' in parameters['barr']
 steering_params.use_ice_gradients = '1' in parameters['multisim']
 steering_params.readCompact = False
 
+# based off the fit, I'm going to activate / deactivate a few parameters by hand. 
+if steering_params.diffuse_fit_type == gf.DiffuseFitType.BrokenPowerLaw:
+    fitparams_flag.astroSigma = True
+    fitparams_flag.astroDeltaGammaSec = True
+    fitparams_flag.astroPivotScale = True
+elif  steering_params.diffuse_fit_type == gf.DiffuseFitType.SinglePowerLaw:
+    fitparams_flag.astroSigma = False
+    fitparams_flag.astroDeltaGammaSec = False
+    fitparams_flag.astroPivotScale = False
+else:
+    pass
 
 print("------------ > Building GF Fitter")
 golemfit = gf.GolemFit(datapaths, steering_params, npp)
@@ -106,6 +119,14 @@ seed_list=[]
 
 for iteration in range(parameters['n_seeds']):
     seeds = gf.FitParameters(gf.sampleTag.Sterile)
+
+    # if we're not fitting to this value, there's no point in seeding it... 
+    if not hasattr(fitparams_flag, key):
+        print("Couldn't find flag with key {}, not assigning flag!".format(key))
+    else:
+        if not getattr(fitparams_flag, key):
+            continue 
+
 
     # [ ... ] center, width, low, high
     for key in raw_seeds.keys():
@@ -125,6 +146,7 @@ print("------------ > Do Fit")
 min_llh = golemfit.MinLLH()
 fit_keys = listattr(min_llh.params) # grabs the attributes that we care about (all of them...)
 
+print("LLH: {}".format(min_llh.likelihood))
 for key in fit_keys:
     try:
         print("{}: {}".format(key, getattr(min_llh.params, key)))
@@ -138,6 +160,7 @@ print("Fit Sum: {}".format(fit_sum))
 output_dict = {}
 
 output_dict['fit_params'] = {}
+output_dict['fit_params'][llh]=min_llh.likelihood
 for key in fit_keys:
     try:
         output_dict['fit_params'][key] = getattr(min_llh.params,key)
