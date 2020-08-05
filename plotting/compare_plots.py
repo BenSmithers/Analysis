@@ -137,22 +137,20 @@ print("Loading in the hdf5 files!")
 import h5py
 
 # open hdf5 file
-#op_file = h5py.File(ops_folder + "LepI_processed.hdf5",'r')
-
-LepI_input = h5py.File(ops_folder + "LepI_processed.hdf5",'r')
-#LepI_input = {}
+op_file = h5py.File(ops_folder + "LepI_processed.hdf5",'r')
+LepI_input = {}
 # transcribe the contents into a dictionary. 
 #   later on, we will access the contents of the keys and cast them as lists
-#for key in op_file:
+for key in op_file:
     # sending the hdf5 list-like object to a ndarray and then to a list is WAY WAY WAY faster than directly casting it as a list
- #   LepI_input[key] = np.array(op_file[key]).tolist()
-#op_file.close()
+    LepI_input[key] = np.array(op_file[key]).tolist()
+op_file.close()
 
-NuGe_input = h5py.File(ops_folder + "NuGe_processed.hdf5",'r')
-#NuGe_input = {}
-#for key in op_file:
-#    NuGe_input[key] = np.array(op_file[key]).tolist()
-#op_file.close()
+op_file = h5py.File(ops_folder + "NuGe_processed.hdf5",'r')
+NuGe_input = {}
+for key in op_file:
+    NuGe_input[key] = np.array(op_file[key]).tolist()
+op_file.close()
 
 
 # close file, open new file
@@ -168,6 +166,8 @@ else:
     flavors     = ['electron']
     matters     = ['anti_matter']
     currents    = ['GR']
+
+print(("GR" if GR_Mode else "Not GR") + "Mode")
 
 # function that constructs a title and file name for each plot
 def make_title(sep_flavor, sep_matter, sep_current, flavor, matter, current):
@@ -210,7 +210,7 @@ if sep_matter:
 #    - if just flavor is true, will have two 1 deep, 1 3 deep. 3x1x1 = 3 plots
 
 # how many bins. This is used by like, all, of the plotting parts
-nBins = 400
+nBins = 150
 
 # should the Bjorken plots be log-scale? Nothing to do with writing a log
 bjorken_log = True
@@ -249,6 +249,8 @@ if use_weights:
     the_lims = [10**-6, 10**-1]
 else:
     the_lims = [10**-8, 10**0]
+
+print(("Using" if use_weights else "Not using") + "weights.")
 
 if bjorken_x:
     print("Starting process for Bjorken X") 
@@ -663,7 +665,7 @@ if secondary_e:
                 axes[1].set_xlim([bins.min(),bins.max()])
                 axes[0].set_ylim(the_lims)
                 axes[0].set_ylabel(r"Flux $dN/dE$ [GeV$^{-1}$]",size=14)
-                axes[1].set_ylim([-2,2])
+                axes[1].set_ylim([-0.2,0.2])
                 axes[0].legend()
                 axes[1].set_ylabel("LI-NuG/LI", size=14)
                 axes[1].set_xlabel("Injected Lepton Energy [GeV]", size=14)
@@ -934,7 +936,7 @@ if energyQ:
     for flavor in range(flavD): 
         for matter in range(mattD):
             for current in range(currD):
-                bins = np.logspace(2,6,nBins)
+                bins = np.logspace(6,7,nBins)
                 # make the LI histogram
                 if use_weights:
                     histo_details  =  plt.hist(LepI_plots[flavor][matter][current],weights = LepI_weights[flavor][matter][current], range=(bins.min(),bins.max()), bins=bins,log=True, density=False)[0]
@@ -966,9 +968,9 @@ if energyQ:
                 axes[0].set_yscale('log')
                 axes[0].set_xscale('log')
                 axes[1].set_xscale('log')
-                axes[0].set_xlim([bins.min(),bins.max()])
-                axes[1].set_xlim([bins.min(),bins.max()])
-                axes[0].set_ylim(the_lims)
+                #axes[0].set_xlim([bins.min(),bins.max()])
+                #axes[1].set_xlim([bins.min(),bins.max()])
+                #axes[0].set_ylim(the_lims)
                 #axes[1].set_ylim([0,0.5])
                 axes[0].set_ylabel(r"$E^{1}dN/dE$",size=14)
                 axes[0].legend()
