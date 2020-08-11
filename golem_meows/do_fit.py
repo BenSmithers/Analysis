@@ -47,9 +47,6 @@ flags_config    = explicit_convert(config['fitflags'])
 priors_config   = explicit_convert(config['priors'])
 raw_seeds=config['seeds']
 
-# what kind of fit are we doing?
-steering_params.diffuse_fit_type = gf.DiffuseFitType.BrokenPowerLaw
-
 # use the loaded parameters to seed the RNG (Affects seed generation)
 random.seed(parameters['rng_seed'])
 
@@ -60,6 +57,9 @@ fitparams = gf.FitParameters(gf.sampleTag.Sterile)
 steering_params = gf.SteeringParams(gf.sampleTag.Sterile)
 fitparams_flag = gf.FitParametersFlag(True)
 priors = gf.Priors(gf.sampleTag.Sterile)
+
+# what kind of fit are we doing?
+#steering_params.diffuse_fit_type = gf.DiffuseFitType.BrokenPowerLaw
 
 # configure datapaths
 point = run_options['point']
@@ -120,16 +120,15 @@ seed_list=[]
 for iteration in range(parameters['n_seeds']):
     seeds = gf.FitParameters(gf.sampleTag.Sterile)
 
-    # if we're not fitting to this value, there's no point in seeding it... 
-    if not hasattr(fitparams_flag, key):
-        print("Couldn't find flag with key {}, not assigning flag!".format(key))
-    else:
-        if not getattr(fitparams_flag, key):
-            continue 
-
-
     # [ ... ] center, width, low, high
     for key in raw_seeds.keys():
+        # if we're not fitting to this value, there's no point in seeding it... 
+        if not hasattr(fitparams_flag, key):
+            print("Couldn't find flag with key {}, not assigning flag!".format(key))
+        else:
+            if not getattr(fitparams_flag, key):
+                continue 
+
         if not hasattr(seeds, key):
             raise KeyError("FitParameters obj has no key '{}'!".format(key))
         value = random.gauss(raw_seeds[key][0], raw_seeds[key][1])
@@ -160,15 +159,19 @@ print("Fit Sum: {}".format(fit_sum))
 output_dict = {}
 
 output_dict['fit_params'] = {}
-output_dict['fit_params'][llh]=min_llh.likelihood
+output_dict['fit_params']['llh']=min_llh.likelihood
 for key in fit_keys:
     try:
         output_dict['fit_params'][key] = getattr(min_llh.params,key)
     except AttributeError:
         print("Invalid attribute {}".format(key))
+prior_keys = listattr(priors)
+output_dict['priors']={}
+for key in prior_keys:
+    output_dict['priors'][key] = getattr(priors,key)
 
 # Write the fit parametrs to a json file
-target_file = os.path.join(run_options['outdir'],"GF_fit_" +run_options['point']+ ".json")
+target_file = os.path.join(run_options['outdir'],"GF_fit_PL_" +run_options['point']+ ".json")
 with open(target_file,'w') as f:
     json.dump(output_dict, f, ensure_ascii=True, indent=2)
 print("-------- > Wrote fit data to {}".format(target_file))
