@@ -1,6 +1,7 @@
 import numpy as np
 import json
 import os
+from math import inf
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -8,8 +9,10 @@ import matplotlib.pyplot as plt
 #datadir = "/data/user/bsmithers/runs"
 datadir = "/home/benito/software/data"
 
-bpl_raw = "GF_fit_BPL_0_0.000000_0.000000_0.000000_0.000000_0.000000_0.000000.json"
-pl_raw = "GF_fit_PL_0_0.000000_0.000000_0.000000_0.000000_0.000000_0.000000.json"
+#bpl_raw = "GF_fit_BPL_0_0.000000_0.000000_0.000000_0.000000_0.000000_0.000000.json"
+bpl_raw =  "BPL0_0.000000_0.000000_0.000000_0.000000_0.000000_0.000000.json"
+#pl_raw = "GF_fit_PL_0_0.000000_0.000000_0.000000_0.000000_0.000000_0.000000.json"
+pl_raw =  "PL0_0.000000_0.000000_0.000000_0.000000_0.000000_0.000000.json"
 
 # load the files in
 if not os.path.exists(os.path.join(datadir, bpl_raw)):
@@ -47,6 +50,11 @@ for datakey in data.keys():
             continue
         if (data[datakey]["fit_params"][key] - data[datakey]["priors"][key+"Center"])!=0:        
             data_heights[datakey][key] = data[datakey]["fit_params"][key] - data[datakey]["priors"][key+"Center"]
+            
+            if True: #data[datakey]["priors"][key+"Width"] != inf:
+                data_heights[datakey][key]/= data[datakey]["priors"][key+"Width"]
+            else:
+                print("Not dividing that inf!")
         else:
             continue
 
@@ -64,9 +72,10 @@ for datakey in data.keys():
 
 plt.yticks( list(data_labels.values()), list(data_labels.keys())) #, rotation=90)
 plt.vlines(0,ymin=-0.5, ymax=current_x-0.5, alpha=0.5, zorder=-1)
-plt.title("Deviation From Center")
+plt.title("Pull / Width")
 plt.ylim([-0.5, current_x-0.5])
 plt.tight_layout()
 plt.legend()
 plt.grid(which='both',axis='y',alpha=0.7)
+plt.savefig("deviation.png",dpi=400)
 plt.show()
