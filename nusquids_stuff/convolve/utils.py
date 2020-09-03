@@ -9,6 +9,224 @@ This defines a few utility functions for my plotting script.
 I moved this over here so the main plotter wasn't too busy
 """
 
+const = nsq.Const()
+
+flavors = ['E', 'Mu', 'Tau']
+neuts = ['nu', 'nuBar']
+currents = ['NC', 'CC']
+
+def get_index( key ):
+    '''
+    Returns the column in the atmosphere data file for a given key
+    '''
+    if not isinstance(key, str):
+        raise TypeError("Expected {}, got {}".format(str, type(key)))
+    split = key.split('_')
+    flavor = split[0] # E Mu Tau
+    variety = split[1] # nu or nu-bar 
+
+    flav_index = flavors.index(flavor) # 0, 1, or 2
+    variety_index = neuts.index(variety) # 0 or 1
+    return( 2 + int( flav_index + len(flavors)*variety_index) )
+
+def bilinear_interp(p0, p1, p2, q11, q12, q21, q22):
+    """
+    Performs a bilinear interpolation on a 2D surface
+    Four values are provided (the qs) relating to the values at the vertices of a square in the (x,y) domain
+        p0  - point at which we want a value (len-2 tuple)
+        p1  - coordinates bottom-left corner (1,1) of the square in the (x,y) domain (len-2 tuple)
+        p2  - upper-right corner (2,2) of the square in the (X,y) domain (len-2 tuple)
+        qs  - values at the vertices of the square (See diagram), floats or ints
+
+
+        (1,2)----(2,2)
+          |        |
+          |        |
+        (1,1)----(2,1)
+
+    """
+    for each in [p0,p1,p2]:
+        if not (isinstance(each, tuple) or isinstance(each, list) or isinstance(each, np.ndarray)):
+            # I /would/ like to print out the bad value, but it might not be castable to a str?
+            raise TypeError("Expected {} for one of the points, got {}".format(tuple, type(each)))
+        if len(each)!=2:
+            raise ValueError("Points should be length {}, not {}!".format(2, len(each)))
+    for val in [q11, q12, q21, q22]:
+        if not (isinstance(val, float) or isinstance(val, int)):
+            raise TypeError("Expected {} for a value, got {}".format(float, type(val)))
+    
+    # check this out for the math
+    # https://en.wikipedia.org/wiki/Bilinear_interpolation
+
+    x0 = p0[0]
+    x1 = p1[0]
+    x2 = p2[0]
+    y0 = p0[1]
+    y1 = p1[1]
+    y2 = p2[1]
+
+    if not (x0>x1 and x0<x2):
+        raise ValueError("You're doing it wrong. x0 should be between {} and {}, got {}".format(x1,x2,x0))
+    if not (y0>y1 and y0<y2):
+        raise ValueError("You're doing it wrong. y0 should be between {} and {}, got {}".format(y1,y2,y0))
+
+    # this is some matrix multiplication. See the above link for details
+    # it's not magic, it's math. Mathemagic 
+    mat_mult_1 = [q11*(y2-y0) + q12*(y0-y1) , q21*(y2-y0) + q22*(y0-y1)]
+    mat_mult_final = (x2-x0)*mat_mult_1[0] + (x0-x1)*mat_mult_1[1]
+
+    return( mat_mult_final/((x2-x1)*(y2-x1)) )
+
+class Data:
+    """
+    This is used as a container for the data loaded in from nuSQuIDS. 
+    The main benefit of this is that the objects used by the interpolator are kept in a sterile scope, 
+        and we don't have to worry about accidentally renaming an important object!  
+    
+    It loads it up into a convenient format for access, and provides a function for interpolating what is loaded. 
+    """
+    def __init__(self, filename='atmosphere.txt'):
+        """
+        Loads in the specified nuSQuIDS datafile. 
+
+        Creates a "flux" dictionary for each type of neutrino and interaction. This is in units of N/s/GeV/cm2/sr
+        """
+        print("Extracting Data")
+        data = np.loadtxt(os.path.join( os.path.dirname(__file__), 'atmosphere.txt'), dtype=float, comments='#',delimiter=' ')
+        n_energies = 701
+        n_angles = 100
+        if not (len(data)==n_energies*n_angles):
+            raise ValueError("Datafile length error? {}!={}".format(len(data), n_energies*n_angles))
+
+        # this funny indexing is a result of the way I output the data from nuSQuIDS
+        # it loops through energies for each angle
+        print("Building Flux Arrays")
+
+        # storing the energies and the angles...
+        # this was originally supposed to be agnostic to growing/shrinking energies/angles, but the code really assumes increasing.
+        self.energies = [10**data[i][0] for i in range(n_energies)]
+        self.growing = self.energies[1]>self.energies[0]  
+        en_width = get_width(self.energies)/const.GeV
+        self.angles = [data[n_energies*i][1] for i in range(n_angles)]
+        self.ang_width = get_width(np.arccos(self.angles))
+        self.ang_grow = self.angles[1]>self.angles[0]
+        print(min(self.energies))
+        print(type(min(self.energies)))
+        print("Data spans {} GeV -> {} GeV".format(min(self.energies)/const.GeV, max(self.energies)/const.GeV))
+        print("           {} rad -> {} rad in zenith".format(min(self.angles), max(self.angles)))
+
+        print("The Energies are {} and the angles are {}".format("increasing" if self.growing else "decreasing", "increasing" if self.ang_grow else "decreasing"))
+        if not (self.growing and self.ang_grow):
+            raise NotImplementedError("I didn't really account for the case that the angles or energies were dereasing")
+
+        # let's fill out some flux functions
+        # in the data file, these data are written in a big list. But that's not a very handy format
+        # so I'm converting these into 2D arrays
+        self.fluxes = {}
+        for flav in flavors:
+            for neut in neuts:
+                for curr in currents:
+                    key = flav+'_'+neut + '_'+curr
+                    if flav=='Mu' and curr=='CC':
+                        # skip tracks 
+                        continue 
+                    
+                    # indexed like [energy_bin][angle_bin]
+                    self.fluxes[ key ] = [[ data[energy+angle*n_energies][get_index(key)]*2*np.pi for angle in range(n_angles)] for energy in range(n_energies)]
+
+    def get_flux(self, energy, key, use_overflow = False, angle=None):
+        '''
+        interpolates between entries in the flux dictionary to return the flux at arbitrary energy and angle
+        Energy should be in units of eV
+        Angle should be in units of radians 
+        
+        If an angle is provided, 
+            Flux is in units of /cm2/GeV/s/sr  (incoming energy, bin width!) 
+        If no angle is provided, the zenith angle is integrated over, and the
+            Flux is in units of /cm2/GeV/s
+
+        returns DOUBLE  (0.0 if beyond scope of data)
+        '''
+        if not (key in self.fluxes):
+            raise ValueError("Bad key {}".format(key))
+        if not (isinstance(energy, float) or isinstance(energy, int)):
+            raise TypeError("Expected {}, not {}".format(float, type(energy)))
+
+        if angle is not None:
+            integrate = False
+        else:
+            integrate = True
+            if not (isinstance(angle, float) or isinstance(angle, int)):
+                raise TypeError("Expected {}, not {}".format(float, type(angle)))
+
+
+
+        # check if it's outside the extents
+        if (energy < self.energies[0] and self.growing) or (energy > self.energies[0] and not self.growing):
+            # this overflow thing wasn't implemented right, so I'm disabling it for now .
+            if False: # use_overflow:
+                return(self.energies[0])
+            else:
+                return(0)
+        if (energy > self.energies[-1] and self.growing) or (energy < self.energies[-1] and not self.growing):
+            if False: #use_overflow:
+                return(self.energies[n_energies - 1])
+            else:
+                return(0)
+
+        if not integrate:
+            if (angle < self.angles[0] and self.ang_grow) or (angle > self.angles[0] and not self.growing):
+                return(0.)
+            if (angle > self.angles[-1] and self.ang_grow) or (angle < self.angles[-1] and not self.growing):
+                return(0.)
+        
+        # should execute in O(N) time 
+        upper_boundary = 1
+        while energy>(self.energies[upper_boundary]):
+            upper_boundary += 1
+        lower_boundary = upper_boundary - 1
+
+        if not integrate:
+            ang_upper = 1
+            while angle>(self.angles[ang_upper]):
+                ang_upper+=1
+            ang_lower = ang_upper -1
+        
+        # sanity check... 
+        # essentially makes sure that the energies are monotonically increasing 
+        if not ((self.energies[lower_boundary] <= energy) and (self.energies[upper_boundary] >= energy)):
+            print("energy: {}".format(energy))
+            print("lower bound: {}".format(self.energies[lower_boundary]))
+            print("upper bound: {}".format(self.energies[upper_boundary]))
+            print("indices: {}, {}".format(lower_boundary, upper_boundary))
+            raise Exception()
+
+        # if we're integrating, we get the flux at all the angles and scale it by width, otherwise it's bilinear interpolation time! 
+        if integrate:
+            flux_value = 0.0
+            for angle in range(len(self.angles)):
+                # linear interpolation 
+                y2 = self.fluxes[key][upper_boundary][angle]
+                y1 = self.fluxes[key][lower_boundary][angle]
+                x2 = self.energies[upper_boundary][angle]
+                x1 = self.energies[lower_boundary][angle]
+                slope = (y2-y1)/(x2-x1)
+
+                flux_value += (energy*slope + y2 -x2*slope)*self.ang_width[angle]
+            return(flux_value)
+        else:   
+        #bilinear_interp(p0, p1, p2, q11, q12, q21, q22):
+            p0 = (energy, angle)
+            p1 = (self.energies[lower_boundary], self.angles[ang_lower])
+            p2 = (self.energies[upper_boundary], self.angles[ang_upper])
+            q11 = self.fluxes[key][lower_boundary][ang_lower]
+            q21 = self.fluxes[key][upper_boundary][ang_lower]
+            q12 = self.fluxes[key][lower_boundary][ang_upper]
+            q22 = self.fluxes[key][upper_boundary][ang_upper]
+            return(bilinear_inerp(p0,p1,p2,q11,q12,q21,q22))
+
+
+test = Data()
 class IllegalArguments(ValueError):
     """
     Just using this to make it clear what the issue is! 

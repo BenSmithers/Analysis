@@ -97,6 +97,7 @@ import nuSQUIDSpy as nsq
 # specialty-made utility functions
 from utils import get_flavor, get_neut, get_curr, get_exp_std, get_width, get_nearest_entry_to
 from utils import bhist
+from utils import Data, get_index
 
 const = nsq.Const()
 # colormap thing
@@ -105,122 +106,7 @@ n_colors = 6
 def get_color(which, how_many=n_colors):
     return( cmap( float(which)/how_many ) )
 
-flavors = ['E', 'Mu', 'Tau']
-neuts = ['nu', 'nuBar']
-currents = ['NC', 'CC']
-
-def get_index( key ):
-    '''
-    Returns the column in the atmosphere data file for a given key
-    '''
-    if not isinstance(key, str):
-        raise TypeError("Expected {}, got {}".format(str, type(key)))
-    split = key.split('_')
-    flavor = split[0] # E Mu Tau
-    variety = split[1] # nu or nu-bar 
-
-    flav_index = flavors.index(flavor) # 0, 1, or 2
-    variety_index = neuts.index(variety) # 0 or 1
-    return( 2 + int( flav_index + len(flavors)*variety_index) )
-
-class Data:
-    """
-    This is used as a container for the data loaded in from nuSQuIDS. 
-    The main benefit of this is that the objects used by the interpolator are kept in a sterile scope, 
-        and we don't have to worry about accidentally renaming an important object!  
-    
-    It loads it up into a convenient format for access, and provides a function for interpolating what is loaded. 
-    """
-    def __init__(self, filename='atmosphere.txt'):
-        """
-        Loads in the specified nuSQuIDS datafile. 
-
-        Creates a "flux" dictionary for each type of neutrino and interaction. This is in units of N/s/GeV/cm2
-        """
-        print("Extracting Data")
-        data = np.loadtxt(os.path.join( os.path.dirname(__file__), 'atmosphere.txt'), dtype=float, comments='#',delimiter=' ')
-        n_energies = 701
-        n_angles = 100
-        if not (len(data)==n_energies*n_angles):
-            raise ValueError("Datafile length error? {}!={}".format(len(data), n_energies*n_angles))
-
-        # this funny indexing is a result of the way I output the data from nuSQuIDS
-        # it loops through energies for each angle
-        print("Building Flux and Energy Arrays")
-        self.energies = [10**data[i][0] for i in range(n_energies)]
-        self.growing = self.energies[1]>self.energies[0]
-        print("Growing" if self.growing else "Decreasing")
-        en_width = get_width(self.energies)/const.GeV
-        angles = [data[n_energies*i][1] for i in range(n_angles)]
-        an_width = get_width(np.arccos(angles))
-
-        # let's fill out some flux functions
-        # in the data file, these data are written in a big list. But that's not a very handy format
-        # so I'm converting these into 2D arrays
-        self.fluxes = {}
-        for flav in flavors:
-            for neut in neuts:
-                for curr in currents:
-                    key = flav+'_'+neut + '_'+curr
-                    if flav=='Mu' and curr=='CC':
-                        # skip tracks 
-                        continue 
-                    
-                    #self.fluxes[ key ] = [sum([ data[energy+angle*n_energies][get_index(key)]*an_width[angle] for angle in range(n_angles)])*(en_width[energy])*2*np.pi for energy in range(n_energies)]
-                    self.fluxes[ key ] = [sum([ data[energy+angle*n_energies][get_index(key)]*an_width[angle] for angle in range(n_angles)])*2*np.pi for energy in range(n_energies)]
-
-    def get_flux(self, energy, key, use_overflow = False):
-        '''
-        interpolates between entries in the flux dictionary to return the flux at arbitrary energy
-        Energy should be in units of eV
-        Flux is in units of /cm2/GeV/s  (incoming energy, bin width!) 
-
-        returns DOUBLE  (0.0 if beyond scope of data)
-        '''
-        if not (key in self.fluxes):
-            raise ValueError("Bad key {}".format(key))
-        if not (isinstance(energy, float) or isinstance(energy, int)):
-            raise TypeError("Expected {}, not {}".format(float, type(energy)))
-
-        
-
-        # check if it's outside the extents
-        if energy < self.energies[0]:
-            if use_overflow:
-                return(self.energies[0])
-            else:
-                return(0)
-        if energy > self.energies[-1]:
-            if use_overflow:
-                return(self.energies[n_energies - 1])
-            else:
-                return(0)
-        
-        # should execute in O(N) time 
-        upper_boundary = 1
-        while energy>(self.energies[upper_boundary]):
-            upper_boundary += 1
-        lower_boundary = upper_boundary - 1
-
-        # sanity check... 
-        # essentially makes sure that the energies are monotonically increasing 
-        if not ((self.energies[lower_boundary] <= energy) and (self.energies[upper_boundary] >= energy)):
-            print("energy: {}".format(energy))
-            print("lower bound: {}".format(self.energies[lower_boundary]))
-            print("upper bound: {}".format(self.energies[upper_boundary]))
-            print("indices: {}, {}".format(lower_boundary, upper_boundary))
-            raise Exception()
-        
-        # linear interpolation 
-        y2 = self.fluxes[key][upper_boundary]
-        y1 = self.fluxes[key][lower_boundary]
-        x2 = self.energies[upper_boundary]
-        x1 = self.energies[lower_boundary]
-        slope = (y2-y1)/(x2-x1)
-
-        flux_value = energy*slope + y2 -x2*slope
-        return(flux_value)
-
+# load the data using the default filename, 'atmosphere.txt'
 data = Data()
 
 scale_e = np.array(data.energies)
