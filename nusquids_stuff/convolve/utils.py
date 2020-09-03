@@ -1,6 +1,7 @@
 import nuSQUIDSpy as nsq
 from math import sqrt
 
+import os
 import numpy as np
 
 """
@@ -154,11 +155,11 @@ class Data:
 
         if angle is not None:
             integrate = False
-        else:
-            integrate = True
             if not (isinstance(angle, float) or isinstance(angle, int)):
                 raise TypeError("Expected {}, not {}".format(float, type(angle)))
-
+        else:
+            integrate = True
+            
 
 
         # check if it's outside the extents
@@ -204,15 +205,15 @@ class Data:
         # if we're integrating, we get the flux at all the angles and scale it by width, otherwise it's bilinear interpolation time! 
         if integrate:
             flux_value = 0.0
-            for angle in range(len(self.angles)):
+            for angle_bin in range(len(self.angles)):
                 # linear interpolation 
-                y2 = self.fluxes[key][upper_boundary][angle]
-                y1 = self.fluxes[key][lower_boundary][angle]
-                x2 = self.energies[upper_boundary][angle]
-                x1 = self.energies[lower_boundary][angle]
+                y2 = self.fluxes[key][upper_boundary][angle_bin]
+                y1 = self.fluxes[key][lower_boundary][angle_bin]
+                x2 = self.energies[upper_boundary]
+                x1 = self.energies[lower_boundary]
                 slope = (y2-y1)/(x2-x1)
 
-                flux_value += (energy*slope + y2 -x2*slope)*self.ang_width[angle]
+                flux_value += (energy*slope + y2 -x2*slope)*self.ang_width[angle_bin]
             return(flux_value)
         else:   
         #bilinear_interp(p0, p1, p2, q11, q12, q21, q22):
@@ -226,7 +227,6 @@ class Data:
             return(bilinear_inerp(p0,p1,p2,q11,q12,q21,q22))
 
 
-test = Data()
 class IllegalArguments(ValueError):
     """
     Just using this to make it clear what the issue is! 
