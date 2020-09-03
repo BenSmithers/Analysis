@@ -66,9 +66,9 @@ def bilinear_interp(p0, p1, p2, q11, q12, q21, q22):
     y1 = p1[1]
     y2 = p2[1]
 
-    if not (x0>x1 and x0<x2):
+    if not (x0>=x1 and x0<=x2):
         raise ValueError("You're doing it wrong. x0 should be between {} and {}, got {}".format(x1,x2,x0))
-    if not (y0>y1 and y0<y2):
+    if not (y0>=y1 and y0<=y2):
         raise ValueError("You're doing it wrong. y0 should be between {} and {}, got {}".format(y1,y2,y0))
 
     # this is some matrix multiplication. See the above link for details
@@ -129,16 +129,9 @@ class Data:
         # in the data file, these data are written in a big list. But that's not a very handy format
         # so I'm converting these into 2D arrays
         self._fluxes = {}
-        for flav in self.flavors:
-            for neut in self.neuts:
-                for curr in self.currents:
-                    key = flav+'_'+neut + '_'+curr
-                    if flav=='Mu' and curr=='CC':
-                        # skip tracks 
-                        continue 
-                    
-                    # indexed like [energy_bin][angle_bin]
-                    self._fluxes[ key ] = [[ data[energy+angle*n_energies][get_index(key)]*2*np.pi for angle in range(n_angles)] for energy in range(n_energies)]
+        for key in self.get_keys():
+            # indexed like [energy_bin][angle_bin]
+            self._fluxes[ key ] = [[ data[energy+angle*n_energies][get_index(key)]*2*np.pi for angle in range(n_angles)] for energy in range(n_energies)]
     
     # define a few access functions to protect the important stuff 
     # the "@property" tag makes it so these are accessed like attributes, not functions! 
@@ -259,7 +252,7 @@ class Data:
             q21 = self._fluxes[key][upper_boundary][ang_lower]
             q12 = self._fluxes[key][lower_boundary][ang_upper]
             q22 = self._fluxes[key][upper_boundary][ang_upper]
-            return(bilinear_inerp(p0,p1,p2,q11,q12,q21,q22))
+            return(bilinear_interp(p0,p1,p2,q11,q12,q21,q22))
 
 
 class IllegalArguments(ValueError):
