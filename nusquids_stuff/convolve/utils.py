@@ -105,16 +105,16 @@ class Data:
 
         # storing the energies and the angles...
         # this was originally supposed to be agnostic to growing/shrinking energies/angles, but the code really assumes increasing.
-        self.energies = [10**data[i][0] for i in range(n_energies)]
-        self.growing = self.energies[1]>self.energies[0]  
-        en_width = get_width(self.energies)/const.GeV
-        self.angles = [data[n_energies*i][1] for i in range(n_angles)]
-        self.ang_width = get_width(np.arccos(self.angles))
-        self.ang_grow = self.angles[1]>self.angles[0]
-        print(min(self.energies))
-        print(type(min(self.energies)))
-        print("Data spans {} GeV -> {} GeV".format(min(self.energies)/const.GeV, max(self.energies)/const.GeV))
-        print("           {} rad -> {} rad in zenith".format(min(self.angles), max(self.angles)))
+        self._energies = [10**data[i][0] for i in range(n_energies)]
+        self.growing = self._energies[1]>self._energies[0]  
+        en_width = get_width(self._energies)/const.GeV
+        self._angles = [data[n_energies*i][1] for i in range(n_angles)]
+        self._ang_width = get_width(np.arccos(self._angles))
+        self.ang_grow = self._angles[1]>self._angles[0]
+        print(min(self._energies))
+        print(type(min(self._energies)))
+        print("Data spans {} GeV -> {} GeV".format(min(self._energies)/const.GeV, max(self._energies)/const.GeV))
+        print("           {} rad -> {} rad in zenith".format(min(self._angles), max(self._angles)))
 
         print("The Energies are {} and the angles are {}".format("increasing" if self.growing else "decreasing", "increasing" if self.ang_grow else "decreasing"))
         if not (self.growing and self.ang_grow):
@@ -128,7 +128,7 @@ class Data:
         # let's fill out some flux functions
         # in the data file, these data are written in a big list. But that's not a very handy format
         # so I'm converting these into 2D arrays
-        self.fluxes = {}
+        self._fluxes = {}
         for flav in self.flavors:
             for neut in self.neuts:
                 for curr in self.currents:
@@ -138,8 +138,38 @@ class Data:
                         continue 
                     
                     # indexed like [energy_bin][angle_bin]
-                    self.fluxes[ key ] = [[ data[energy+angle*n_energies][get_index(key)]*2*np.pi for angle in range(n_angles)] for energy in range(n_energies)]
+                    self._fluxes[ key ] = [[ data[energy+angle*n_energies][get_index(key)]*2*np.pi for angle in range(n_angles)] for energy in range(n_energies)]
+    
+    # define a few access functions to protect the important stuff 
+    # the "@property" tag makes it so these are accessed like attributes, not functions! 
+    @property
+    def energies(self):
+        return(self._energies)
+    @property
+    def angles(self):
+        return(self._angles)
+    @property
+    def ang_width(self):
+        return(self._ang_width)
+    @property
+    def fluxes(self):
+        return(Self._fluxes) 
 
+    def get_keys(self):
+        """
+        Returns a list of all the keys in the dictionary of fluxes 
+        """
+        keys = []
+        for flav in self.flavors:
+            for neut in self.neuts:
+                for curr in self.currents:
+                    key = flav+'_'+neut + '_'+curr
+                    if flav=='Mu' and curr=='CC':
+                        # skip tracks 
+                        continue 
+                    else: 
+                        keys.append(key)
+        return(keys)
     def get_flux(self, energy, key, use_overflow = False, angle=None):
         '''
         interpolates between entries in the flux dictionary to return the flux at arbitrary energy and angle
@@ -153,7 +183,7 @@ class Data:
 
         returns DOUBLE  (0.0 if beyond scope of data)
         '''
-        if not (key in self.fluxes):
+        if not (key in self._fluxes):
             raise ValueError("Bad key {}".format(key))
         if not (isinstance(energy, float) or isinstance(energy, int)):
             raise TypeError("Expected {}, not {}".format(float, type(energy)))
@@ -168,67 +198,67 @@ class Data:
 
 
         # check if it's outside the extents
-        if (energy < self.energies[0] and self.growing) or (energy > self.energies[0] and not self.growing):
+        if (energy < self._energies[0] and self.growing) or (energy > self._energies[0] and not self.growing):
             # this overflow thing wasn't implemented right, so I'm disabling it for now .
             if False: # use_overflow:
-                return(self.energies[0])
+                return(self._energies[0])
             else:
                 return(0)
-        if (energy > self.energies[-1] and self.growing) or (energy < self.energies[-1] and not self.growing):
+        if (energy > self._energies[-1] and self.growing) or (energy < self._energies[-1] and not self.growing):
             if False: #use_overflow:
-                return(self.energies[n_energies - 1])
+                return(self._energies[n_energies - 1])
             else:
                 return(0)
 
         if not integrate:
-            if (angle < self.angles[0] and self.ang_grow) or (angle > self.angles[0] and not self.growing):
+            if (angle < self._angles[0] and self.ang_grow) or (angle > self._angles[0] and not self.growing):
                 return(0.)
-            if (angle > self.angles[-1] and self.ang_grow) or (angle < self.angles[-1] and not self.growing):
+            if (angle > self._angles[-1] and self.ang_grow) or (angle < self._angles[-1] and not self.growing):
                 return(0.)
         
         # should execute in O(N) time 
         upper_boundary = 1
-        while energy>(self.energies[upper_boundary]):
+        while energy>(self._energies[upper_boundary]):
             upper_boundary += 1
         lower_boundary = upper_boundary - 1
 
         if not integrate:
             ang_upper = 1
-            while angle>(self.angles[ang_upper]):
+            while angle>(self._angles[ang_upper]):
                 ang_upper+=1
             ang_lower = ang_upper -1
         
         # sanity check... 
         # essentially makes sure that the energies are monotonically increasing 
-        if not ((self.energies[lower_boundary] <= energy) and (self.energies[upper_boundary] >= energy)):
+        if not ((self._energies[lower_boundary] <= energy) and (self._energies[upper_boundary] >= energy)):
             print("energy: {}".format(energy))
-            print("lower bound: {}".format(self.energies[lower_boundary]))
-            print("upper bound: {}".format(self.energies[upper_boundary]))
+            print("lower bound: {}".format(self._energies[lower_boundary]))
+            print("upper bound: {}".format(self._energies[upper_boundary]))
             print("indices: {}, {}".format(lower_boundary, upper_boundary))
             raise Exception()
 
         # if we're integrating, we get the flux at all the angles and scale it by width, otherwise it's bilinear interpolation time! 
         if integrate:
             flux_value = 0.0
-            for angle_bin in range(len(self.angles)):
+            for angle_bin in range(len(self._angles)):
                 # linear interpolation 
-                y2 = self.fluxes[key][upper_boundary][angle_bin]
-                y1 = self.fluxes[key][lower_boundary][angle_bin]
-                x2 = self.energies[upper_boundary]
-                x1 = self.energies[lower_boundary]
+                y2 = self._fluxes[key][upper_boundary][angle_bin]
+                y1 = self._fluxes[key][lower_boundary][angle_bin]
+                x2 = self._energies[upper_boundary]
+                x1 = self._energies[lower_boundary]
                 slope = (y2-y1)/(x2-x1)
 
-                flux_value += (energy*slope + y2 -x2*slope)*self.ang_width[angle_bin]
+                flux_value += (energy*slope + y2 -x2*slope)*self._ang_width[angle_bin]
             return(flux_value)
         else:   
         #bilinear_interp(p0, p1, p2, q11, q12, q21, q22):
             p0 = (energy, angle)
-            p1 = (self.energies[lower_boundary], self.angles[ang_lower])
-            p2 = (self.energies[upper_boundary], self.angles[ang_upper])
-            q11 = self.fluxes[key][lower_boundary][ang_lower]
-            q21 = self.fluxes[key][upper_boundary][ang_lower]
-            q12 = self.fluxes[key][lower_boundary][ang_upper]
-            q22 = self.fluxes[key][upper_boundary][ang_upper]
+            p1 = (self._energies[lower_boundary], self._angles[ang_lower])
+            p2 = (self._energies[upper_boundary], self._angles[ang_upper])
+            q11 = self._fluxes[key][lower_boundary][ang_lower]
+            q21 = self._fluxes[key][upper_boundary][ang_lower]
+            q12 = self._fluxes[key][lower_boundary][ang_upper]
+            q22 = self._fluxes[key][upper_boundary][ang_upper]
             return(bilinear_inerp(p0,p1,p2,q11,q12,q21,q22))
 
 
