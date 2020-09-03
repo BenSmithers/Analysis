@@ -120,13 +120,18 @@ class Data:
         if not (self.growing and self.ang_grow):
             raise NotImplementedError("I didn't really account for the case that the angles or energies were dereasing")
 
+        # store the flavors, neutrinos, and currents
+        self.flavors = flavors
+        self.neuts = neuts
+        self.currents = currents
+
         # let's fill out some flux functions
         # in the data file, these data are written in a big list. But that's not a very handy format
         # so I'm converting these into 2D arrays
         self.fluxes = {}
-        for flav in flavors:
-            for neut in neuts:
-                for curr in currents:
+        for flav in self.flavors:
+            for neut in self.neuts:
+                for curr in self.currents:
                     key = flav+'_'+neut + '_'+curr
                     if flav=='Mu' and curr=='CC':
                         # skip tracks 

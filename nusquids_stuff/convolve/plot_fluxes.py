@@ -71,10 +71,6 @@ else:
     if mode in [-1,0,1,2,3,7]:
         raise DeprecationWarning("Mode {} is deprecated".format(mode))
 
-flavors = ['E', 'Mu', 'Tau']
-neuts = ['nu', 'nuBar']
-currents = ['NC', 'CC']
-
 print("Configuration...")
 print("    In Mode {}".format(mode))
 print("    Will Load Data" if load_stored else "    Will Generate Data")
@@ -165,9 +161,9 @@ if mode==0 or mode==1:
     from_diffy, widths  = get_distribs_for_cascade_energy(energy, casc_widths/const.GeV, in_energies)
     from_muon = np.array([ 0. for ienergy in range(n_bins) ])
     from_not = np.array([ 0. for ienergy in range(n_bins) ])
-    for flav in flavors:
-        for neut in neuts:
-            for curr in currents:
+    for flav in data.flavors:
+        for neut in data.neuts:
+            for curr in data.currents:
                 if (flav=='Mu' or flav=='Tau') and curr=='CC': # skip the tracks 
                     continue 
                 key = flav+'_'+neut + '_'+curr
@@ -304,9 +300,9 @@ def generate_singly_diff_fluxes(n_bins,debug=False):
     from_not = np.zeros((n_bins,n_bins))
     nuflux = {}
 
-    for flav in flavors:
-        for neut in neuts:
-            for curr in currents:
+    for flav in data.flavors:
+        for neut in data.neuts:
+            for curr in data.currents:
                 key = flav+"_"+neut+"_"+curr
                 if curr=="CC" and (flav=="Mu" or flav=="Tau"): # we might not want to skip Taus? How are tau cascade energies calculated? 
                     continue
@@ -577,9 +573,9 @@ if mode==9 or do_all:
     eles =np.zeros((n_bins,n_bins))
     muon =np.zeros((n_bins,n_bins))
 
-    for flav in flavors:
-        for neut in neuts:
-            for curr in currents:
+    for flav in data.flavors:
+        for neut in data.neuts:
+            for curr in data.currents:
                 if (flav=='Mu' or flav=='Tau') and curr=='CC': # skip the tracks 
                     continue 
                 key = flav+'_'+neut + '_'+curr
