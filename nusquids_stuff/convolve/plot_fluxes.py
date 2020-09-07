@@ -227,7 +227,7 @@ def _save_data(parent_energies, child_energies, muon_ones, not_muon, angle_edges
     all_data = {"parent_energies": parent_energies, 
                     "child_energies": child_energies, 
                     "muon_ones": muon_ones, 
-                    "not_muon": not_muon
+                    "not_muon": not_muon,
                     "angle_edges":angle_edges}
     f = open(savefile,'wb')
     pickle.dump( all_data, f, -1)
@@ -262,7 +262,7 @@ def do_for_key(event_edges,cascade_edges, key, angles=None):
             # deposit all the energy. Hadronic and Leptonic (event) contribute 
             # Since the energy always all gets deposited, we only need to do one loop!
             # So, for a given "deposited energy" (cascade_energy), we already know the total energy. 
-            # Therefore we just get the total cross section * flux there... the units end up as [s GeV in]^-1 
+            # Therefore we just get the total cross section * flux there... the units end up as [s GeV in sr]^-1 
             for cas_bin in range(len(cascade_energies)):
                 deposited_energy = cascade_energies[cas_bin]
                 
@@ -307,7 +307,7 @@ def generate_singly_diff_fluxes(n_bins,debug=False):
     e_max = 100*const.TeV
     extra = 2
     
-    all_angles = data.angles()
+    all_angles = data.angles
 
     event_edges = np.logspace(np.log10(e_min), np.log10(e_max)+extra,n_bins+1)
     cascade_edges = np.logspace(np.log10(e_min), np.log10(e_max),n_bins+1)
@@ -321,7 +321,7 @@ def generate_singly_diff_fluxes(n_bins,debug=False):
 
     for key in data.get_keys(): #flavor, current, interaction 
         nuflux[key] = do_for_key(event_edges,cascade_edges,key, (angle_edges if sep_angles else None))
-        if key.split('_')[0]=="mu":
+        if key.split('_')[0].lower()=="mu":
             from_muon+=nuflux[key]
         else:
             from_not+=nuflux[key]
