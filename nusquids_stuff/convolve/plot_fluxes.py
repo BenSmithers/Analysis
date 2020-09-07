@@ -330,7 +330,7 @@ def generate_singly_diff_fluxes(n_bins,debug=False):
     if debug:
         return(event_edges,cascade_edges, nuflux)
     else:
-        return(event_edges,cascade_edges, from_muon, from_not)
+        return(event_edges,cascade_edges, from_muon, from_not, angle_edges)
 
 
 
@@ -341,7 +341,7 @@ if mode==8 or do_all:
     if load_stored and os.path.exists(savefile):
         event, cascade, from_muon, from_not, angle_edges = _load_data()
     else:
-        event, cascade, from_muon, from_not = generate_singly_diff_fluxes(n_bins)
+        event, cascade, from_muon, from_not, angle_edges = generate_singly_diff_fluxes(n_bins)
  
     event_energies = np.array(bhist([event]).centers)
     cascade_energies = np.array(bhist([cascade]).centers)
@@ -384,7 +384,7 @@ if mode==2 or mode==4 or do_all:
     if load_stored and os.path.exists(savefile):
         parent, these, muon_ones, not_muon, angle_edges  = _load_data()
     else:
-        parent, these, muon_ones, not_muon = generate_singly_diff_fluxes(n_bins)
+        parent, these, muon_ones, not_muon, angle_edges  = generate_singly_diff_fluxes(n_bins)
 
     parent_energies = np.array(bhist([parent]).centers)
     these_energies = np.array(bhist([these]).centers)
@@ -442,7 +442,7 @@ if mode==5 or do_all:
     if load_stored and os.path.exists(savefile):
         parent, these, muon_ones, not_muon ,angle_edges = _load_data()
     else:
-        parent, these, muon_ones, not_muon = generate_singly_diff_fluxes(n_bins)
+        parent, these, muon_ones, not_muon, angle_edges = generate_singly_diff_fluxes(n_bins)
    
     parent_con = bhist([parent])
     these_con = bhist([these])
@@ -510,7 +510,7 @@ if mode==6 or do_all:
     if load_stored and os.path.exists(savefile):
         parent, these, muon_ones, not_muon ,angle_edges = _load_data()
     else:
-        parent, these, muon_ones, not_muon = generate_singly_diff_fluxes(n_bins)
+        parent, these, muon_ones, not_muon, angle_edges = generate_singly_diff_fluxes(n_bins)
 
     parent_con = bhist([parent])
     these_con = bhist([these])
