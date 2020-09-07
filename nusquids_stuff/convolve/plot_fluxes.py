@@ -218,22 +218,23 @@ def _load_data():
     all_data = pickle.load(f)
     f.close()
     return( all_data["parent_energies"], all_data["child_energies"], \
-                all_data["muon_ones"], all_data["not_muon"] )
+                all_data["muon_ones"], all_data["not_muon"], all_data["angle_edges"])
     
-def _save_data(parent_energies, child_energies, muon_ones, not_muon):
+def _save_data(parent_energies, child_energies, muon_ones, not_muon, angle_edges):
     """
     Saves the generated data for use later. 
     """
     all_data = {"parent_energies": parent_energies, 
                     "child_energies": child_energies, 
                     "muon_ones": muon_ones, 
-                    "not_muon": not_muon}
+                    "not_muon": not_muon
+                    "angle_edges":angle_edges}
     f = open(savefile,'wb')
     pickle.dump( all_data, f, -1)
     f.close()   
     print("Data Saved!")
 
-def do_for_key(event_edges,cascade_edges, key):
+def do_for_key(event_edges,cascade_edges, key, angles=None):
     """
     This function takes the desired bin edges for the event energies and deposited energies along with the dictionary key corresponding to a specific combination of falvor, current, and neutrino type.
 
@@ -252,34 +253,45 @@ def do_for_key(event_edges,cascade_edges, key):
 
     flux = bhist((cascade_edges, event_edges))
 
-    if curr=="CC":
-        # deposit all the energy. Hadronic and Leptonic (event) contribute 
-        # Since the energy always all gets deposited, we only need to do one loop!
-        # So, for a given "deposited energy" (cascade_energy), we already know the total energy. 
-        # Therefore we just get the total cross section * flux there... the units end up as [s GeV in]^-1 
-        for cas_bin in range(len(cascade_energies)):
-            deposited_energy = cascade_energies[cas_bin]
-            
-            amount =data.get_flux(deposited_energy,key)
-            amount *= get_diff_xs(deposited_energy, get_flavor(key), get_neut(key), get_curr(key))
-            flux.register( amount, deposited_energy, deposited_energy) # add it in! 
-
+    if angles is None:
+        ang_list = [None]
     else:
-        # in this case, knowing the cascade doesn't tell us anything about the event energy. 
-        # so we loop over both, get the flux*differential_xs at each bin combination, and multiply by the widths of deposited-energy-bin to get the same units as in the CC case 
-        for evt_bin in range(len(event_energies)):
+        ang_list = angles
+    for angle in ang_list:
+        if curr=="CC":
+            # deposit all the energy. Hadronic and Leptonic (event) contribute 
+            # Since the energy always all gets deposited, we only need to do one loop!
+            # So, for a given "deposited energy" (cascade_energy), we already know the total energy. 
+            # Therefore we just get the total cross section * flux there... the units end up as [s GeV in]^-1 
             for cas_bin in range(len(cascade_energies)):
-                lepton_energy = event_energies[evt_bin] - cascade_energies[cas_bin]
+                deposited_energy = cascade_energies[cas_bin]
+                
+                amount =data.get_flux(deposited_energy,key, angle=angle)
+                amount *= get_diff_xs(deposited_energy, get_flavor(key), get_neut(key), get_curr(key))
+                if angle is None:
+                    flux.register( amount, deposited_energy, deposited_energy) # add it in! 
+                else: 
+                    flux.register( amount, deposited_energy, deposited_energy, angle)
 
-                # we'll have nowhere to put these, so let's just skip this
-                if lepton_energy < min(cascade_energies):
-                    continue
-                if lepton_energy > max(cascade_energies):
-                    continue
+        else:
+            # in this case, knowing the cascade doesn't tell us anything about the event energy. 
+            # so we loop over both, get the flux*differential_xs at each bin combination, and multiply by the widths of deposited-energy-bin to get the same units as in the CC case 
+            for evt_bin in range(len(event_energies)):
+                for cas_bin in range(len(cascade_energies)):
+                    lepton_energy = event_energies[evt_bin] - cascade_energies[cas_bin]
 
-                amount =data.get_flux(event_energies[evt_bin],key)
-                amount *= get_diff_xs(event_energies[evt_bin], get_flavor(key), get_neut(key), get_curr(key), lepton_energy,0.0)*cascade_widths[cas_bin]
-                flux.register(amount, cascade_energies[cas_bin], event_energies[evt_bin])
+                    # we'll have nowhere to put these, so let's just skip this
+                    if lepton_energy < min(cascade_energies):
+                        continue
+                    if lepton_energy > max(cascade_energies):
+                        continue
+
+                    amount =data.get_flux(event_energies[evt_bin],key, angle)
+                    amount *= get_diff_xs(event_energies[evt_bin], get_flavor(key), get_neut(key), get_curr(key), lepton_energy,0.0)*cascade_widths[cas_bin]
+                    if angle is None:
+                        flux.register(amount, cascade_energies[cas_bin], event_energies[evt_bin])
+                    else:
+                        flux.register(amount, cascade_energies[cas_bin], event_energies[evt_bin], angle)
 
     return(flux.fill) # for context, this returns a 2D list of the fluxes at each bin
 
@@ -288,36 +300,37 @@ def generate_singly_diff_fluxes(n_bins,debug=False):
     This is the newest, most streamlined function for generating the singly-differential flux arrays. 
     It has the same functionality as the old ones, but now it skips the step of filling in the regular flux array before swapping to the deposited energy flux array. 
 
-
+    It goes over the different kind of fluxes and builds up a 2D or 3D array, convolving the entries with the relevant differential cross section
+        the dimensionality depends on whether or we are integrating over the zenith angles
     """
     e_min = 10*const.GeV
     e_max = 100*const.TeV
     extra = 2
     
+    all_angles = data.angles()
+
     event_edges = np.logspace(np.log10(e_min), np.log10(e_max)+extra,n_bins+1)
     cascade_edges = np.logspace(np.log10(e_min), np.log10(e_max),n_bins+1)
+    angle_edges = np.linspace(min(all_angles), max(all_angles), n_bins+1)
+
+    sep_angles = False
+
     from_muon = np.zeros((n_bins,n_bins))
     from_not = np.zeros((n_bins,n_bins))
     nuflux = {}
 
-    for flav in data.flavors:
-        for neut in data.neuts:
-            for curr in data.currents:
-                key = flav+"_"+neut+"_"+curr
-                if curr=="CC" and (flav=="Mu" or flav=="Tau"): # we might not want to skip Taus? How are tau cascade energies calculated? 
-                    continue
-                else:
-                    nuflux[key] = do_for_key(event_edges,cascade_edges,key)
-                if flav=="Mu":
-                    from_muon+=nuflux[key]
-                else:
-                    from_not+=nuflux[key]
+    for key in data.get_keys(): #flavor, current, interaction 
+        nuflux[key] = do_for_key(event_edges,cascade_edges,key, (angle_edges if sep_angles else None))
+        if key.split('_')[0]=="mu":
+            from_muon+=nuflux[key]
+        else:
+            from_not+=nuflux[key]
     
-    _save_data( event_edges, cascade_edges, from_muon, from_not)
+    _save_data( event_edges, cascade_edges, from_muon, from_not, angle_edges)
     if debug:
-        return(event_edges,cascade_edges, nuflux)    
+        return(event_edges,cascade_edges, nuflux)
     else:
-        return(event_edges,cascade_edges, from_muon, from_not) 
+        return(event_edges,cascade_edges, from_muon, from_not)
 
 
 
@@ -326,7 +339,7 @@ if do_all:
 
 if mode==8 or do_all:
     if load_stored and os.path.exists(savefile):
-        event, cascade, from_muon, from_not = _load_data()
+        event, cascade, from_muon, from_not, angle_edges = _load_data()
     else:
         event, cascade, from_muon, from_not = generate_singly_diff_fluxes(n_bins)
  
@@ -369,7 +382,7 @@ if mode==2 or mode==4 or do_all:
     Deprecated. See generate_singly_diff_fluxes! 
     """
     if load_stored and os.path.exists(savefile):
-        parent, these, muon_ones, not_muon = _load_data()
+        parent, these, muon_ones, not_muon, angle_edges  = _load_data()
     else:
         parent, these, muon_ones, not_muon = generate_singly_diff_fluxes(n_bins)
 
@@ -427,7 +440,7 @@ if mode==5 or do_all:
     Error bands are shown representing a 1-sigma deviation 
     """
     if load_stored and os.path.exists(savefile):
-        parent, these, muon_ones, not_muon = _load_data()
+        parent, these, muon_ones, not_muon ,angle_edges = _load_data()
     else:
         parent, these, muon_ones, not_muon = generate_singly_diff_fluxes(n_bins)
    
@@ -495,7 +508,7 @@ if mode==6 or do_all:
     This doesn't make the muon/notmuon distinction from mode 5
     """
     if load_stored and os.path.exists(savefile):
-        parent, these, muon_ones, not_muon = _load_data()
+        parent, these, muon_ones, not_muon ,angle_edges = _load_data()
     else:
         parent, these, muon_ones, not_muon = generate_singly_diff_fluxes(n_bins)
 
