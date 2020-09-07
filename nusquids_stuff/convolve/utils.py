@@ -3,6 +3,7 @@ from math import sqrt
 
 import os
 import numpy as np
+from functools import reduce
 
 """
 This defines a few utility functions for my plotting script.
@@ -299,40 +300,31 @@ class bhist:
             raise TypeError("It appears impossible to add {} together.".format(dtype))
 
         # build the function needed to register additions to the histograms.
-        # Come to think of it, this would also be doable with a single function using an *args implementation to an arbitrary dimensionality... TODO! 
-        if len(edges)==1:
-            self._fill=[self._dtype() for i in range(len(self._edges[0])-1)]
-            def register(amt, where):
-                # make sure it's the right datatype, if not try casting it
-                if not isinstance(amt, self._dtype):
-                    try:
-                        amount = self._dtype(amt)
-                    except TypeError:
-                        raise TypeError("Expected {}, got {}. Tried casting to {}, but failed.".format(self._dtype, type(amt), self._dtype))
-                else:
-                    amount = amt
-                index = self._get_loc( where, self._edges[0] )
-                if index is not None:
-                    self._fill[index] += amount 
-                    return(index)
-            self.register = register 
-        
-        else: # length 2
-            self._fill = [[self._dtype() for i in range(len(self._edges[0])-1)] for j in range(len(self._edges[1])-1)]
-            def register(amt, xloc, yloc ):
-                if not isinstance(amt, self._dtype):
-                    try:
-                        amount = self._dtype(amt)
-                    except TypeError:
-                        raise TypeError("Expected {}, got {}. Tried casting to {}, but failed.".format(self._dtype, type(amt), self._dtype))
-                else:
-                    amount = amt
-                xbin = self._get_loc( xloc, self._edges[0] )
-                ybin = self._get_loc( yloc, self._edges[1] )
-                if (xbin is not None) and (ybin is not None):
-                    self._fill[xbin][ybin]+=amount
-                    return(xbin,ybin)
-            self.register = register
+        dims = tuple([len(self._edges[i])-1 for i in range(len(self._edges))])
+        self._fill = np.zeros( shape=dims, dtype=self._dtype )
+        # this function has *args, a lambda, AND arcane numpy stuff. Woo! 
+        def register( amt, *args):
+            """
+            Tries to bin some data passed to the bhist. Arbitrarily dimensioned cause I was moving from 2D-3D and this seemed like a good opportunity 
+                amt is the amount to add
+                * args specifies the coordinates in our binned space 
+            """
+            if not len(args)==len(self._edges): 
+                return
+            if not isinstance(amt, self._dtype):
+                try:
+                    amount = self._dtype(amt)
+                except TypeError:
+                    raise TypeError("Expected {}, got {}. Tried casting to {}, but failed.".format(self._dtype, type(amt), self._dtype))
+            else:
+                amount = amt
+            bin_loc = tuple([self._get_loc( args[i], self._edges[i]) for i in range(len(args))]) # get the bin for each dimension
+            # this reduce function combines all the elements of the list and makes sure that none of them are "None" type
+            if reduce(lambda entry1, entry2: entry1 is not None and entry2 is not None, bin_loc):
+                # itemset works like ( *bins, amount )
+                self._fill.itemset(bin_loc, self._fill.item(tuple(bin_loc))+amt)
+                return tuple(bin_loc)
+        self.register = register
 
     def _get_loc(self, value, edges):
         """
