@@ -112,10 +112,11 @@ for line in parsed_lines:
     lineno+=1
 
 plt.xscale('log')
-plt.yscale('log')
+#plt.yscale('log')
 plt.xlabel("Depth [cm]",size=14)
 plt.ylabel("Density [g/cm3]",size=14)
-plt.ylim([0.0001, 20])
+plt.ylim([0, 15])
 plt.xlim([100000, 6500000])
-plt.legend(loc=4)
+plt.legend(loc=2)
+plt.savefig("earth_density.png",dpi=400)
 plt.show()
