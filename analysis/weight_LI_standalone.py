@@ -25,10 +25,13 @@ import LeptonWeighter as LW
 # import h5py as h5
 
 
-out_folder = "./"
-input_files = ["/home/bsmithers/processing/LI_standalone_test/data_output_0a.h5"]
-inp = "/home/bsmithers/processing/LI_standalone_test/data_output_0a.h5"
-lic_files = ["/home/bsmithers/processing/LI_standalone_test/config_0a.lic"]
+out_folder = "/home/benito/Desktop/testing/with_volume/"
+#input_files = ["/home/bsmithers/processing/LI_standalone_test/data_output_0a.h5"]
+input_files = ["/home/benito/Desktop/testing/data_output_0a.h5"]
+#inp = "/home/bsmithers/processing/LI_standalone_test/data_output_0a.h5"
+
+lic_files = ["/home/benito/Desktop/testing/config_0a.lic"]
+#lic_files = ["/home/bsmithers/processing/LI_standalone_test/config_0a.lic"]
 
 name = "LepI"
 
@@ -129,13 +132,14 @@ net_generation = []
 for lic in lic_files:
     net_generation += LW.MakeGeneratorsFromLICFile(lic) 
 
+xs_folder = "/home/benito/Desktop/testing/resources/"
 xs = LW.CrossSectionFromSpline(
-                    "/data/user/bsmithers/cross_sections/dsdxdy_nu_CC_iso.fits",
-                    "/data/user/bsmithers/cross_sections/dsdxdy_nubar_CC_iso.fits",
-                    "/data/user/bsmithers/cross_sections/dsdxdy_nu_NC_iso.fits",
-                    "/data/user/bsmithers/cross_sections/dsdxdy_nubar_NC_iso.fits")
+                    os.path.join(xs_folder,"dsdxdy_nu_CC_iso.fits"),
+                    os.path.join(xs_folder,"dsdxdy_nubar_CC_iso.fits"),
+                    os.path.join(xs_folder,"dsdxdy_nu_NC_iso.fits"),
+                    os.path.join(xs_folder,"dsdxdy_nubar_NC_iso.fits"))
 
-use_atm = True
+use_atm = False
 if use_atm:
     # commenting these out while I make a BSM flux 
     pi_nusquids_flux = LW.nuSQUIDSAtmFlux(Flux+'/pion_atmospheric.hdf5')
@@ -178,8 +182,8 @@ def get_weight( props ):
     LWevent.final_state_particle_0 = LW.ParticleType( props[5] )
     LWevent.final_state_particle_1 = LW.ParticleType( props[6] )
     LWevent.primary_type = LW.ParticleType( props[7] )
-    LWevent.radius = props[9]
-    LWevent.total_column_depth = props[10]
+    LWevent.radius = props[8]
+    LWevent.total_column_depth = props[9]
     LWevent.x = 0
     LWevent.y = 0
     LWevent.z = 0
