@@ -5,7 +5,7 @@ import numpy as np
 import os
 from math import sqrt
 
-emin = 0
+emin = 1
 emax = 150
 n_bins = 50
 
@@ -32,11 +32,17 @@ def plot_files(files):
         data = np.loadtxt(each)
         invmass = get_invmass_from_data(data)
 
-        bins = np.linspace(emin, emax, n_bins+1)
+        bins = np.logspace(np.log10(emin), np.log10(emax), n_bins+1)
+#        bins = np.linspace(emin, emax, n_bins+1)
 
         plt.hist(invmass, bins,alpha=0.5, label=each.split(".")[0])
 
     plt.legend()
+    plt.title("Ben's Plot - Do Not Steal")
+    plt.xlabel("Invariant Mass [GeV]",size=14)
+    plt.ylabel("Counts",size=14)
+    plt.xscale('log')
+    plt.yscale('log')
     plt.show()
     plt.close()
 
