@@ -258,14 +258,21 @@ def do_for_key(event_edges,cascade_edges, key, angles=None):
     else:
         ang_list = angles
     for angle in ang_list:
+        # need special Tau treatment 
         if curr=="CC":
             # deposit all the energy. Hadronic and Leptonic (event) contribute 
             # Since the energy always all gets deposited, we only need to do one loop!
             # So, for a given "deposited energy" (cascade_energy), we already know the total energy. 
             # Therefore we just get the total cross section * flux there... the units end up as [s GeV in sr]^-1 
-            for cas_bin in range(len(cascade_energies)):
-                deposited_energy = cascade_energies[cas_bin]
-                
+            for cas_bin in range(len(cascade_energies)): 
+                deposited_energy = cascade_energies[cas_bin] # energy going to the leptonic component! 
+                 
+                if flav.lower()=='tau':
+                    # Etau is cascade_energies[cas_bin]
+                    # How much energy is visible in the various tau decays though? 
+                    # going from zero->deposited energy
+                    pass
+
                 amount =data.get_flux(deposited_energy,key, angle=angle)
                 amount *= get_diff_xs(deposited_energy, get_flavor(key), get_neut(key), get_curr(key))
                 if angle is None:
@@ -293,7 +300,7 @@ def do_for_key(event_edges,cascade_edges, key, angles=None):
                     else:
                         flux.register(amount, cascade_energies[cas_bin], event_energies[evt_bin], angle)
 
-    return(flux.fill) # for context, this returns a 2D list of the fluxes at each bin
+    return(flux.fill)
 
 def generate_singly_diff_fluxes(n_bins,debug=False):
     """
