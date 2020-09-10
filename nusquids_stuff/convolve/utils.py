@@ -132,6 +132,8 @@ class Data:
         self._fluxes = {}
         for key in self.get_keys():
             # indexed like [energy_bin][angle_bin]
+            # you may notice that NC and CC are treated as having separate fluxes, when really it'sthe same flux 
+            #       this is for the most part okay since the interactions are rare enough that the fluxes are unchanged 
             self._fluxes[ key ] = [[ data[energy+angle*n_energies][get_index(key)]*2*np.pi for angle in range(n_angles)] for energy in range(n_energies)]
     
     # define a few access functions to protect the important stuff 
