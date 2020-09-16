@@ -7,8 +7,10 @@ import numpy as np
 from scipy import integrate 
 
 # tau file verison should be updated with changes to this code! 
-tau_file_version = "1.0"
+tau_file_version = "3.2"
 tau_file_name = ".tau_branch.dat"
+
+full_path = os.path.join(os.path.dirname(__file__), tau_file_name)
 
 class TauData:
     """
@@ -20,19 +22,53 @@ class TauData:
     TODO: maybe do this with splines? 
     """
     def __init__(self):
-        self._version = tau_file_version
-        
-        self._nodes = 1000
-        self._energy_nodes = np.logspace(1, 8, self._nodes)
+        """
+        Try to load the data in from a file, if it's not there, it's illformatted, or it's outdated, then just make a new one 
+        """
+        if os.path.exists(full_path):
+            # load it, verify version number 
+            file_object = open(full_path,'rb')
+            tau_file = pickle.load(file_object)
+            file_object.close()
 
-        self._expected_michell = np.zeros(self._nodes)
+            if not isinstance(tau_file, dict):
+                self._gen_tau_data()
+                return
+
+            try:
+                if tau_file["version"]==tau_file_version:
+                    self._energy_nodes = tau_file["energy_nodes"]
+                    self._expected_michell = tau_file["expected_michell"]
+                else:
+                    self._gen_tau_data()
+            except KeyError: # somehow a different dict got saved here? 
+                self._gen_tau_data()        
+        else:
+            self._gen_tau_data()
+ 
+         
+    def _gen_tau_data(self):
+        print("Generating Tau Data")
+        self._nodes = 1000
+        self._energy_nodes = np.logspace(1, 8, self._nodes) #represents E_tau
+
+        self._expected_michell = [np.zeros(self._nodes), np.zeros(self._nodes)]
         for e_i in range(self._nodes):
             #boostedMichel( E_e, E_tau )
-            vals = integrate.quad( lambda ene: BoostedMichel(ene, self._energy_nodes[e_i])*self._energy_nodes[e_i], 10, 10**8)
-            self._expected_michell[e_i] = vals[0]
+            vals = integrate.quad( lambda z: TauDecayToAll(self._energy_nodes[e_i], z*self._energy_nodes[e_i],-1)*z*self._energy_nodes[e_i], 0.0, 0.999)
+            self._expected_michell[0][e_i] = vals[0]
+
+            vals = integrate.quad( lambda z: TauDecayToAll(self._energy_nodes[e_i], z*self._energy_nodes[e_i], 1)*z*self._energy_nodes[e_i], 0.0, 0.999)
+            self._expected_michell[1][e_i] = vals[0]
+
+        # build the dict, write it 
+        file_object = open(full_path, 'wb')
+        data_dict = {"version":tau_file_version, "energy_nodes":self._energy_nodes, "expected_michell":self._expected_michell}
+        pickle.dump(data_dict, file_object, -1) #use the newest pickling techniques
+        file_object.close()
 
 
-    def expected_electron(self, E_tau):
+    def expected_Etau(self, E_tau, P):
         """
         Returns the expectation value for the BoostedMichel function given E_tau
         Bascially tells you what the expected energy of the electron is of a decaying tau of energy E_tau
@@ -43,16 +79,24 @@ class TauData:
         if E_tau<min(self._energy_nodes) or E_tau>max(self._energy_nodes):
             raise ValueError("E_tau of {:.2f} GeV outside of calculated bounds ({:.2f}GeV, {:.2f}GeV). Modify and update TauData, or maybe something else is bad?".format(E_tau, min(self._energy_nodes), max(self._energy_nodes)))
 
+        if P not in [-1,1]:
+            raise ValueError("Unexpected Polarization {}".format(P))
+
+        if P==-1:
+            pol = 0
+        else:
+            pol = 1
+
         upper_boundary = 1
         while E_tau>(self._energy_nodes[upper_boundary]):
             upper_boundary += 1
         lower_boundary = upper_boundary - 1
 
         #linear interpolation
-        y2 = self._expected_michell[upper_boundary]
-        y1 = self._expected_michell[lower_boundary]
-        x2 = self.energy_nodes[upper_boundary]
-        x1 = self.energy_nodes[lower_boundary]
+        y2 = self._expected_michell[pol][upper_boundary]
+        y1 = self._expected_michell[pol][lower_boundary]
+        x2 = self._energy_nodes[upper_boundary]
+        x1 = self._energy_nodes[lower_boundary]
         slope = (y2-y1)/(x2-x1)
 
         return( E_tau*slope + y2-(x2*slope) )
@@ -61,11 +105,11 @@ class TauData:
     def version(self):
         return(self._version)
 
-    def __call__(self, E_tau):
+    def __call__(self, E_tau, pol):
         if not (isinstance(E_tau, float) or isinstance(E_tau, int)):
             raise TypeError("Expected {} for E_tau, not {}".format(float, type(E_tau)))
 
-        return(1.0)
+        return( self.expected_Etau(E_tau, pol) )
 
 
 def args_are_floats(*args):
@@ -84,7 +128,7 @@ def args_are_floats(*args):
 Much of this code is modified from 
 https://github.com/IceCubeOpenSource/TauRunner/blob/master/python/Casino.py
 
-So far I've only added type-checking using the above function
+I've added the type checking and some functionality to pre-calculate the expected tau decay stuff 
 """
 
 #branching ratios of the charged tau 
@@ -127,10 +171,10 @@ def TauDecayToLepton(Etau, Enu, P):
     # therefore we suppress the spectra by the P_mu/(P_e+P_mu) ratio
     sup = 0.1739/(0.1739+0.1782)
 
-    #z = Enu/Etau
-    #g0 = (5./3.) - 3.*z**2 + (4./3.)*z**3
-    #g1 = (1./3.) - 3.*z**2 + (8./3.)*z**3
-    #return(g0+P*g1)
+    z = Enu/Etau
+    g0 = (5./3.) - 3.*z**2 + (4./3.)*z**3
+    g1 = (1./3.) - 3.*z**2 + (8./3.)*z**3
+    return(g0+P*g1)
 
     # For a given Etau, we need the expected E_e 
 
@@ -209,40 +253,5 @@ def TauDecayToAllHadrons(Etau, Enu, P):
     decay_spectra+=BrA1*TauDecayToA1(Etau, Enu, P)
     decay_spectra+=BrHad*TauDecayToHadrons(Etau, Enu, P)
     return decay_spectra/Etau
-
-def generate_tau_file():
-    """
-    Generates and returns TauDecay data
-
-    Save the file for later, quicker access
-    """
-    tau_file_loc = TauData()
-    file_object = open(full_path, 'wb')
-    pickle.dump(tau_file_loc, file_object, -1) # use the newest pickling techniques 
-    file_object.close()
-
-    return(tau_file_loc)
-
-
-# try to load the file, if it's not there generate it
-# if the file is old, regenerate it 
-full_path = os.path.join(os.path.dirname(__file__), tau_file_name)
-if os.path.exists(full_path):
-    # load it, verify version number 
-    file_object = open(full_path,'rb')
-    tau_file = pickle.load(file_object)
-    file_object.close()
-    
-    # this would be weird. Loaded taudata, but it's a different data type 
-    # wtf? 
-    if not isinstance(tau_file, TauData):
-        raise TypeError("Loaded {}, not {}!".format(type(tau_file, TauData)))
-
-    # old file, regenerate 
-    if tau_file.version != tau_file_version:
-        tau_file = generate_tau_file()
-
-else: # no file, make file! 
-    tau_file = generate_tau_file()
 
 
