@@ -122,13 +122,13 @@ if debug:
     for key in data.fluxes:
         flav=str(key).split('_')[0]
         if 'Tau'==flav:
-            taus+=data.fluxes[key]
+            taus+=[data.fluxes[key][i][-1] for i in range(len(data.fluxes[key]))]
         elif "E"==flav:
-            ele+=data.fluxes[key]
+            ele+=[data.fluxes[key][i][-1] for i in range(len(data.fluxes[key]))]
         elif "Mu"==flav:
-            muon+=data.fluxes[key]
+            muon+=[data.fluxes[key][i][-1] for i in range(len(data.fluxes[key]))]
         else:
-            raise Exception("Ya Done goofed")
+            raise Exception("You might have done steriles? {} is unrecognized".format(flav))
 
 
     plt.plot( scale_e/const.GeV, muon, color=get_color(0,3),label="Muons")

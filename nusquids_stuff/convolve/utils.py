@@ -149,7 +149,7 @@ class Data:
         return(self._ang_width)
     @property
     def fluxes(self):
-        return(Self._fluxes) 
+        return(self._fluxes) 
 
     def get_keys(self):
         """
