@@ -7,7 +7,7 @@ import numpy as np
 from scipy import integrate 
 
 # tau file verison should be updated with changes to this code! 
-tau_file_version = "3.2"
+tau_file_version = "3.3.1"
 tau_file_name = ".tau_branch.dat"
 
 full_path = os.path.join(os.path.dirname(__file__), tau_file_name)
@@ -49,8 +49,8 @@ class TauData:
          
     def _gen_tau_data(self):
         print("Generating Tau Data")
-        self._nodes = 1000
-        self._energy_nodes = np.logspace(1, 8, self._nodes) #represents E_tau
+        self._nodes = 1500
+        self._energy_nodes = np.logspace(1, 10, self._nodes) #represents E_tau
 
         self._expected_michell = [np.zeros(self._nodes), np.zeros(self._nodes)]
         for e_i in range(self._nodes):
@@ -109,7 +109,7 @@ class TauData:
         if not (isinstance(E_tau, float) or isinstance(E_tau, int)):
             raise TypeError("Expected {} for E_tau, not {}".format(float, type(E_tau)))
 
-        return( self.expected_Etau(E_tau, pol) )
+        return( E_tau - self.expected_Etau(E_tau, pol) )
 
 
 def args_are_floats(*args):
@@ -153,14 +153,6 @@ def BoostedMichel(E_e, E_t):
         return 0.
     return 1. / E_t * (5./3. - 3. *r**2 +4./3. * r**3)
 
-def expected_EE(E_tau):
-    """
-    Calculates the expectation value of the boosted michel function for some charged tau energy
-
-    This tells you what energy we expect of the daughter electron
-    """
-
-    exp_r = (5./3. - (3./4.) + (4./(3.*5.)))
 
 def TauDecayToLepton(Etau, Enu, P):
     """
@@ -170,11 +162,15 @@ def TauDecayToLepton(Etau, Enu, P):
     # muon decay will be classified as tracks, so I'm throwing those away
     # therefore we suppress the spectra by the P_mu/(P_e+P_mu) ratio
     sup = 0.1739/(0.1739+0.1782)
+    expected_el = (5./3. - (3./4.) + (4./(3.*5.)))
 
-    z = Enu/Etau
-    g0 = (5./3.) - 3.*z**2 + (4./3.)*z**3
-    g1 = (1./3.) - 3.*z**2 + (8./3.)*z**3
-    return(g0+P*g1)
+
+    return( sup*BoostedMichel( expected_el, Etau) )
+
+#    z = Enu/Etau
+#    g0 = (5./3.) - 3.*z**2 + (4./3.)*z**3
+#    g1 = (1./3.) - 3.*z**2 + (8./3.)*z**3
+#    return(g0+P*g1)
 
     # For a given Etau, we need the expected E_e 
 
