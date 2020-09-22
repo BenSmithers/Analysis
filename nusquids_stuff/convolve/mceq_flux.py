@@ -29,12 +29,12 @@ def get_angle_flux( angle , mag=0):
 
     flux['e_grid'] = mceq.e_grid
 
-    flux['nue_flux'] = mceq.get_solution('nue',mag)
-    flux['nue_bar_flux'] = mceq.get_solution('antinue',mag)
-    flux['numu_flux'] = mceq.get_solution('numu',mag)
-    flux['numu_bar_flux'] = mceq.get_solution('antinumu',mag)
-    flux['nutau_flux'] = mceq.get_solution('nutau',mag)
-    flux['nutau_bar_flux'] = mceq.get_solution('antinutau',mag)
+    flux['nue_flux'] = mceq.get_solution('nue',mag)+mceq.get_solution('pr_nue',mag)
+    flux['nue_bar_flux'] = mceq.get_solution('antinue',mag)+mceq.get_solution('pr_antinue',mag)
+    flux['numu_flux'] = mceq.get_solution('numu',mag)+mceq.get_solution('pr_numu',mag)
+    flux['numu_bar_flux'] = mceq.get_solution('antinumu',mag)+mceq.get_solution('pr_antinumu',mag)
+    flux['nutau_flux'] = mceq.get_solution('nutau',mag)+mceq.get_solution('pr_nutau',mag)
+    flux['nutau_bar_flux'] = mceq.get_solution('antinutau',mag)+mceq.get_solution('pr_antinutau',mag)
     
 
 
