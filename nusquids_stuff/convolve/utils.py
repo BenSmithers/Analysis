@@ -4,6 +4,7 @@ from math import sqrt
 import os
 import numpy as np
 from functools import reduce
+import sys
 
 """
 This defines a few utility functions for my plotting script.
@@ -284,8 +285,7 @@ class bhist:
         if not (isinstance(edges, list) or isinstance(edges, tuple) or isinstance(edges, np.ndarray)):
             raise TypeError("Arg 'edges' must be {}, got {}".format(list, type(edges)))
 
-        if not(len(edges)==1 or len(edges)==2):
-            raise ValueError("Arg 'edges' should be of length 1 or 2, depending on imensionality of desired bhist")
+
         for entry in edges:
             if not (isinstance(entry, list) or isinstance(entry, tuple) or isinstance(entry, np.ndarray)):
                 raise TypeError("Each entry in 'edges' should be list-like, found {}".format(type(entry)))
@@ -309,10 +309,10 @@ class bhist:
             """
             Tries to bin some data passed to the bhist. Arbitrarily dimensioned cause I was moving from 2D-3D and this seemed like a good opportunity 
                 amt is the amount to add
-                * args specifies the coordinates in our binned space 
+                *args specifies the coordinates in our binned space 
             """
             if not len(args)==len(self._edges): 
-                return
+                raise ValueError("Wrong number of args to register! Got {}, not {}".format(len(args), len(self._edges)))
             if not isinstance(amt, self._dtype):
                 try:
                     amount = self._dtype(amt)
@@ -320,11 +320,19 @@ class bhist:
                     raise TypeError("Expected {}, got {}. Tried casting to {}, but failed.".format(self._dtype, type(amt), self._dtype))
             else:
                 amount = amt
+
             bin_loc = tuple([self._get_loc( args[i], self._edges[i]) for i in range(len(args))]) # get the bin for each dimension
-            # this reduce function combines all the elements of the list and makes sure that none of them are "None" type
-            if reduce(lambda entry1, entry2: entry1 is not None and entry2 is not None, bin_loc):
+
+            # Verifies that nothing in the list is None-type
+            if all([x is not None for x in bin_loc]):
                 # itemset works like ( *bins, amount )
-                self._fill.itemset(bin_loc, self._fill.item(tuple(bin_loc))+amt)
+                try:
+                    self._fill.itemset(bin_loc, self._fill.item(tuple(bin_loc))+amount)
+                except TypeError:
+                    print("bin_loc: {}".format(bin_loc))
+                    print("amount: {}".format(amount))
+                    print("previous: {}".format(self._fill.item(tuple(bin_loc))))
+                    sys.exit()
                 return tuple(bin_loc)
         self.register = register
 
@@ -341,7 +349,6 @@ class bhist:
                 if scan==len(edges)-1:
                     raise Exception("Something bad happened with logic")
             return(scan)
-            self._fill[scan]+=value 
 
     # some access properties. Note these aren't function calls. They are accessed like "object.centers" 
     @property
@@ -449,7 +456,7 @@ def get_width( which_list ):
 
     return(np.array(widths))
 
-def get_exp_std( widths, probabilities, values ):
+def get_exp_std( widths, probs, values ):
     """
     This takes a discretely binned probability density function representing a true continuous one,
     integrates it to get the expectation value and standard deviation of the distribution
@@ -462,14 +469,16 @@ def get_exp_std( widths, probabilities, values ):
     """
     sigma = 0.5+0.341
 
-    if not (len(widths)==len(values) and len(values)==len(probabilities)):
+    if not (len(widths)==len(values) and len(values)==len(probs)):
         raise ValueError("The args should have the same lengths")
    
     if not all(width>=0 for width in widths):
         raise ValueError("Found negative width, this can't be right.")
 
-    if not all(prob>=0 for prob in probabilities):
-        raise ValueError("Found negative probability. {}".format(min(probabilities)))
+#    if not all(prob>=0 for prob in probabilities):
+#       raise ValueError("Found negative probability. {}".format(min(probabilities)))
+
+    probabilities = np.abs(probs)
 
     norm = sum([widths[i]*probabilities[i] for i in range(len(widths))  ])
     if norm==0.:

@@ -50,10 +50,17 @@ parser.add_option("-n", "--nbins",
                 default=200,
                 type=int,
                 help="Number of bins to use for each axis")
+parser.add_option("-a", "--angle",
+                dest="angle",
+                default=None,
+                type=float,
+                help="At which angle should the plots be made?")
+
 options, args = parser.parse_args()
 mode = options.mode
 load_stored = options.load_stored
 debug = options.debug
+glob_angle = options.angle
 
 n_bins = options.n_bins
 do_norm=False # deprecated 
@@ -99,6 +106,8 @@ from utils import get_flavor, get_neut, get_curr, get_exp_std, get_width, get_ne
 from utils import bhist
 from utils import Data, get_index
 
+from tau_funcs import TauData
+
 const = nsq.Const()
 # colormap thing
 cmap = plt.get_cmap('coolwarm')
@@ -108,6 +117,7 @@ def get_color(which, how_many=n_colors):
 
 # load the data using the default filename, 'atmosphere.txt'
 data = Data()
+tauData = TauData()
 
 scale_e = np.array(data.energies)
 
@@ -217,8 +227,28 @@ def _load_data():
     f = open(savefile, 'rb')
     all_data = pickle.load(f)
     f.close()
+    angle_edges = all_data["angle_edges"]
+    from_muon = all_data["muon_ones"]
+    from_not = all_data["not_muon"]
+
+    if glob_angle is not None:
+        # figure out which slice to return
+        # [:,:,N] would return the N'th angle bin
+        if glob_angle<min(angle_edges) or glob_angle>max(angle_edges):
+            from_muon = from_muon[:,:,0]*0.
+            from_not = from_not[:,:,0]*0.
+        else:
+            scan = 0
+            while not (glob_angle>=angle_edges[scan] and glob_angle<=angle_edges[scan+1]):
+                scan +=1 
+                if scan==len(angle_edges)-1:
+                    raise Exception("Seems like an invalid angle... or bad logic")
+            from_muon = from_muon[:,:,scan]
+            from_not = from_not[:,:,scan]
+
+
     return( all_data["parent_energies"], all_data["child_energies"], \
-                all_data["muon_ones"], all_data["not_muon"], all_data["angle_edges"])
+                from_muon, from_not, angle_edges )
     
 def _save_data(parent_energies, child_energies, muon_ones, not_muon, angle_edges):
     """
@@ -251,12 +281,18 @@ def do_for_key(event_edges,cascade_edges, key, angles=None):
     flav = key.split("_")[0]
     curr = key.split("_")[2]
 
-    flux = bhist((cascade_edges, event_edges))
+
 
     if angles is None:
         ang_list = [None]
     else:
         ang_list = angles
+
+    if angles is None:
+        flux = bhist((cascade_edges, event_edges))
+    else:
+        flux = bhist((cascade_edges, event_edges, angles))
+
     for angle in ang_list:
         # need special Tau treatment 
         if curr=="CC":
@@ -271,7 +307,7 @@ def do_for_key(event_edges,cascade_edges, key, angles=None):
                     # Etau is cascade_energies[cas_bin]
                     # How much energy is visible in the various tau decays though? 
                     # going from zero->deposited energy
-                    pass
+                    deposited_energy = 0.5*(tauData(deposited_energy/const.GeV,1)+tauData(deposited_energy/const.GeV,-1))
 
                 amount =data.get_flux(deposited_energy,key, angle=angle)
                 amount *= get_diff_xs(deposited_energy, get_flavor(key), get_neut(key), get_curr(key))
@@ -318,12 +354,16 @@ def generate_singly_diff_fluxes(n_bins,debug=False):
 
     event_edges = np.logspace(np.log10(e_min), np.log10(e_max)+extra,n_bins+1)
     cascade_edges = np.logspace(np.log10(e_min), np.log10(e_max),n_bins+1)
-    angle_edges = np.linspace(min(all_angles), max(all_angles), n_bins+1)
+    angle_edges = np.linspace(min(all_angles), max(all_angles), n_bins+1) # angle is in cos(zenith), so like -1->0
 
-    sep_angles = False
+    sep_angles = True
+    if sep_angles:
+        from_muon = np.zeros((n_bins,n_bins,n_bins))
+        from_not = np.zeros((n_bins,n_bins,n_bins))
+    else:
+        from_muon = np.zeros((n_bins,n_bins))
+        from_not = np.zeros((n_bins,n_bins))
 
-    from_muon = np.zeros((n_bins,n_bins))
-    from_not = np.zeros((n_bins,n_bins))
     nuflux = {}
 
     for key in data.get_keys(): #flavor, current, interaction 
@@ -333,7 +373,25 @@ def generate_singly_diff_fluxes(n_bins,debug=False):
         else:
             from_not+=nuflux[key]
     
+    # if global variable "angle" isn't none, then we can separate out just a single angle
     _save_data( event_edges, cascade_edges, from_muon, from_not, angle_edges)
+    
+    if glob_angle is not None:
+        # figure out which slice to return
+        # [:,:,N] would return the N'th angle bin
+        if glob_angle<min(angle_edges) or glob_angle>max(angle_edges):
+            from_muon = from_muon[:,:,0]*0.
+            from_not = from_not[:,:,0]*0.
+        else:
+            scan = 0
+            while not (glob_angle>=angle_edges[scan] and glob_angle<=angle_edges[scan+1]):
+                scan +=1 
+                if scan==len(angle_edges)-1:
+                    raise Exception("Seems like an invalid angle... or bad logic")
+            from_muon = from_muon[:,:,scan]
+            from_not = from_not[:,:,scan]
+
+
     if debug:
         return(event_edges,cascade_edges, nuflux)
     else:
@@ -349,7 +407,9 @@ if mode==8 or do_all:
         event, cascade, from_muon, from_not, angle_edges = _load_data()
     else:
         event, cascade, from_muon, from_not, angle_edges = generate_singly_diff_fluxes(n_bins)
- 
+
+    
+
     event_energies = np.array(bhist([event]).centers)
     cascade_energies = np.array(bhist([cascade]).centers)
 
@@ -386,7 +446,7 @@ if mode==2 or mode==4 or do_all:
     """
     Creates two 2D contour plots showing doubly differential event rates as a function of event and cascade energy. 
 
-    Deprecated. See generate_singly_diff_fluxes! 
+    I think this is deprecated now?
     """
     if load_stored and os.path.exists(savefile):
         parent, these, muon_ones, not_muon, angle_edges  = _load_data()
@@ -491,7 +551,7 @@ if mode==5 or do_all:
     axes[0].set_xlim([5e1, 10**5])
     axes[1].set_xlim([5e1, 10**5])
     axes[0].set_ylim([10**1, 10**7])
-    axes[1].set_ylim([0,1])
+    axes[1].set_ylim([0.5,1])
     axes[1].yaxis.set_ticks(np.linspace(0,1,6))
     axes[0].grid('major', alpha=0.5 )
     axes[0].legend()
@@ -556,7 +616,7 @@ if mode==6 or do_all:
     axes[0].set_xlim([5e1, 10**5])
     axes[1].set_xlim([5e1, 10**5])
     axes[0].set_ylim([10**1, 10**7])
-    axes[1].set_ylim([0,1])
+    axes[1].set_ylim([0.5,1])
     axes[1].yaxis.set_ticks(np.linspace(0,1,6))
     axes[0].grid('major', alpha=0.5 )
 
@@ -645,7 +705,7 @@ if mode==9 or do_all:
     axes[0].set_xlim([5e1, 10**5])
     axes[1].set_xlim([5e1, 10**5])
     axes[0].set_ylim([10**1, 10**7])
-    axes[1].set_ylim([0,1])
+    axes[1].set_ylim([0.5,1])
     axes[1].yaxis.set_ticks(np.linspace(0,1,6))
     axes[0].grid('major', alpha=0.5 )
     axes[0].legend()
