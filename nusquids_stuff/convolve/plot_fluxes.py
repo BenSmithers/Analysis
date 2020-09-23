@@ -220,49 +220,49 @@ def _load_data():
 
     0 - parent energies
     1 - child energies
-    3 - muon cascade flux (DD)
-    4 - not muon cascade flux (DD)
+    2 - nuflux
+    3 - cos(zenith) edges
     """
     print("Loading Data")
     f = open(savefile, 'rb')
     all_data = pickle.load(f)
     f.close()
     angle_edges = all_data["angle_edges"]
-    from_muon = all_data["muon_ones"]
-    from_not = all_data["not_muon"]
+    nuflux = all_data["nuflux"]
 
     if glob_angle is not None:
         # figure out which slice to return
         # [:,:,N] would return the N'th angle bin
         if glob_angle<min(angle_edges) or glob_angle>max(angle_edges):
-            from_muon = from_muon[:,:,0]*0.
-            from_not = from_not[:,:,0]*0.
+            for keys in nuflux.keys():
+                nuflux[key] = nuflux[key][:,:,0]*0.
         else:
             scan = 0
             while not (glob_angle>=angle_edges[scan] and glob_angle<=angle_edges[scan+1]):
                 scan +=1 
                 if scan==len(angle_edges)-1:
                     raise Exception("Seems like an invalid angle... or bad logic")
-            from_muon = from_muon[:,:,scan]
-            from_not = from_not[:,:,scan]
+            for key in nuflux.keys():
+                nuflux[key] = nuflux[key][:,:,scan]
 
 
     return( all_data["parent_energies"], all_data["child_energies"], \
-                from_muon, from_not, angle_edges )
+                nuflux, angle_edges )
     
-def _save_data(parent_energies, child_energies, muon_ones, not_muon, angle_edges):
+def _save_data(parent_energies, child_energies, nuflux, angle_edges):
     """
     Saves the generated data for use later. 
     """
     all_data = {"parent_energies": parent_energies, 
                     "child_energies": child_energies, 
-                    "muon_ones": muon_ones, 
-                    "not_muon": not_muon,
+                    "nuflux":nuflux,
                     "angle_edges":angle_edges}
     f = open(savefile,'wb')
     pickle.dump( all_data, f, -1)
     f.close()   
     print("Data Saved!")
+
+
 
 def do_for_key(event_edges,cascade_edges, key, angles=None):
     """
@@ -368,47 +368,59 @@ def generate_singly_diff_fluxes(n_bins,debug=False):
 
     for key in data.get_keys(): #flavor, current, interaction 
         nuflux[key] = do_for_key(event_edges,cascade_edges,key, (angle_edges if sep_angles else None))
-        if key.split('_')[0].lower()=="mu":
-            from_muon+=nuflux[key]
-        else:
-            from_not+=nuflux[key]
     
     # if global variable "angle" isn't none, then we can separate out just a single angle
-    _save_data( event_edges, cascade_edges, from_muon, from_not, angle_edges)
+    _save_data( event_edges, cascade_edges, nuflux, angle_edges)
     
     if glob_angle is not None:
         # figure out which slice to return
         # [:,:,N] would return the N'th angle bin
         if glob_angle<min(angle_edges) or glob_angle>max(angle_edges):
-            from_muon = from_muon[:,:,0]*0.
-            from_not = from_not[:,:,0]*0.
+            for key in nuflux.keys():
+                nuflux[key] = nuflux[key][:,:,0]*0.
         else:
             scan = 0
             while not (glob_angle>=angle_edges[scan] and glob_angle<=angle_edges[scan+1]):
                 scan +=1 
                 if scan==len(angle_edges)-1:
                     raise Exception("Seems like an invalid angle... or bad logic")
-            from_muon = from_muon[:,:,scan]
-            from_not = from_not[:,:,scan]
+            for key in nuflux.keys():
+                nuflux[key] = nuflux[key][:,:,scan]
 
+    return(event_edges,cascade_edges, nuflux, angle_edges)
 
-    if debug:
-        return(event_edges,cascade_edges, nuflux)
-    else:
-        return(event_edges,cascade_edges, from_muon, from_not, angle_edges)
+def sep_by_flavor(nuflux):
+    """
+    So this takes that nuflux object, a dictionary of 3D arrays, and separates it into two 3D arrays: one for muons and one for non-muons
+    """
 
+    if not isinstance(nuflux, dict):
+        raise TypeError("nuflux should be a {}, not a {}".format(dict, type(nuflux)))
+    if not isinstance(nuflux[list(nuflux.keys())[0]], np.ndarray):
+        raise TypeError("Entries in nuflux should all be {}, not {}".format(np.ndarray, type(nuflux[list(nuflux.keys())[0]])))
 
+    entry_shape = np.shape(nuflux[list(nuflux.keys())[0]])
+    from_muons = np.zeros(shape=entry_shape)
+    from_not = np.zeros(shape=entry_shape)
+
+    for key in nuflux:
+        flavor = key.split('_')[0]
+        if flavor=="Mu":
+            from_muons+=nuflux[key]
+        else:
+            from_not+=nuflux[key]
+    return(from_muons, from_not)
 
 if do_all:
     generate_singly_diff_fluxes(n_bins)
 
 if mode==8 or do_all:
     if load_stored and os.path.exists(savefile):
-        event, cascade, from_muon, from_not, angle_edges = _load_data()
+        event, cascade, nuflux, angle_edges = _load_data()
     else:
-        event, cascade, from_muon, from_not, angle_edges = generate_singly_diff_fluxes(n_bins)
+        event, cascade, nuflux, angle_edges = generate_singly_diff_fluxes(n_bins)
 
-    
+    from_muon, from_not = sep_by_flavor(nuflux)
 
     event_energies = np.array(bhist([event]).centers)
     cascade_energies = np.array(bhist([cascade]).centers)
@@ -449,10 +461,13 @@ if mode==2 or mode==4 or do_all:
     I think this is deprecated now?
     """
     if load_stored and os.path.exists(savefile):
-        parent, these, muon_ones, not_muon, angle_edges  = _load_data()
+        parent, these, nuflux, angle_edges  = _load_data()
     else:
-        parent, these, muon_ones, not_muon, angle_edges  = generate_singly_diff_fluxes(n_bins)
-
+        parent, these, nuflux, angle_edges  = generate_singly_diff_fluxes(n_bins)
+    
+    
+    muon_ones, not_muon = sep_by_flavor(nuflux)
+    
     parent_energies = np.array(bhist([parent]).centers)
     these_energies = np.array(bhist([these]).centers)
 
@@ -507,10 +522,13 @@ if mode==5 or do_all:
     Error bands are shown representing a 1-sigma deviation 
     """
     if load_stored and os.path.exists(savefile):
-        parent, these, muon_ones, not_muon ,angle_edges = _load_data()
+        parent, these, nuflux ,angle_edges = _load_data()
     else:
-        parent, these, muon_ones, not_muon, angle_edges = generate_singly_diff_fluxes(n_bins)
-   
+        parent, these, nuflux, angle_edges = generate_singly_diff_fluxes(n_bins)
+
+    muon_ones, not_muon = sep_by_flavor(nuflux)
+
+
     parent_con = bhist([parent])
     these_con = bhist([these])
 
@@ -575,9 +593,11 @@ if mode==6 or do_all:
     This doesn't make the muon/notmuon distinction from mode 5
     """
     if load_stored and os.path.exists(savefile):
-        parent, these, muon_ones, not_muon ,angle_edges = _load_data()
+        parent, these, nuflux, angle_edges = _load_data()
     else:
-        parent, these, muon_ones, not_muon, angle_edges = generate_singly_diff_fluxes(n_bins)
+        parent, these, nuflux, angle_edges = generate_singly_diff_fluxes(n_bins)
+
+    muon_ones, not_muon = sep_by_flavor(nuflux)
 
     parent_con = bhist([parent])
     these_con = bhist([these])
@@ -638,7 +658,11 @@ if mode==9 or do_all:
 
     Error bands are shown representing a 1-sigma deviation 
     """
-    parent, these, flux = generate_singly_diff_fluxes(n_bins, True)
+    
+    if load_stored and os.path.exists(savefile):
+        parent, these, flux, angle_edges = _load_data()
+    else:
+        parent, these, flux, angle_edges = generate_singly_diff_fluxes(n_bins)
    
     these_con = bhist([these])
     parent_con = bhist([these])
@@ -656,7 +680,7 @@ if mode==9 or do_all:
     for flav in data.flavors:
         for neut in data.neuts:
             for curr in data.currents:
-                if (flav=='Mu' or flav=='Tau') and curr=='CC': # skip the tracks 
+                if flav=='Mu' and curr=='CC': # skip the tracks 
                     continue 
                 key = flav+'_'+neut + '_'+curr
                 if flav=='Mu':
