@@ -242,9 +242,12 @@ def _load_data():
                 scan +=1 
                 if scan==len(angle_edges)-1:
                     raise Exception("Seems like an invalid angle... or bad logic")
-            for key in nuflux.keys():
-                nuflux[key] = nuflux[key][:,:,scan]
+            print("Grabbed angle bin {}".format(scan))
+            width = abs( np.arccos(angle_edges[scan+1]) - np.arccos(angle_edges[scan]))
 
+            for key in nuflux.keys():
+                nuflux[key] = nuflux[key][:,:,scan]*width
+                
 
     return( all_data["parent_energies"], all_data["child_energies"], \
                 nuflux, angle_edges )
@@ -411,8 +414,40 @@ def sep_by_flavor(nuflux):
             from_not+=nuflux[key]
     return(from_muons, from_not)
 
-if do_all:
+if do_all and not load_stored:
     generate_singly_diff_fluxes(n_bins)
+
+def build_contours(obs_energy, obs_angle):
+    """
+    Presuming we're given some observed angle and observed energy...
+
+    We first figure out which event bin we want 
+    """
+
+    glob_angle = None
+
+    if load_stored and os.path.exists(savefile):
+        event, cascade, nuflux, angle_edges  = _load_data()
+    else:
+        event, cascade, nuflux, angle_edges  = generate_singly_diff_fluxes(n_bins)
+
+    # need to figure out which bin to use! 
+    scan = 0
+    if obs_energy<min(cascade) or obs_energy>max(cascade):
+        raise ValueError("{:.2f} GeV outside energy range: {:.2f} GeV to {:.2f} GeV".format(event, min(cascade), max(cascade)))
+
+    while not (obs_energy>=cascade[scan] and obs_energy<=cascade[scan+1]):
+        scan += 1
+        if scan==(len(cascade)-1):
+            raise Exception("Logic error...")
+    
+    
+    event_energies = np.array(bhist([event]).centers)
+    angles = [abs(np.arccos(angle_edges[i+1]) - np.arccos(angle_edges[i])) for i in range(len(angle_edges))]
+    cascade_widths = np.array(bhist([cascade]).widths)
+
+    # so now this is /GeV/rad  (per the rest of the stuff)
+    flux = nuflux[:,scan,:]*cascade_widths[scan]
 
 if mode==8 or do_all:
     if load_stored and os.path.exists(savefile):
