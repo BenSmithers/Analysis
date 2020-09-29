@@ -1,10 +1,11 @@
+from Event import Event 
+
 class Weighter:
     def __init__(self, dtype=float):
         if not isinstance(dtype, type):
             raise TypeError("Arg 'dtype' must be {}, got {}".format(type, type(dtype))) # weird...
 
-        self._dtype = type
-        self._friend = None
+        self._dtype = dtype
 
     @property
     def dtype(self):
@@ -14,29 +15,68 @@ class Weighter:
         """
         Calculate the weight of the event
         """
-        return( 0.0 )
+        if not isinstance(event, Event):
+            raise TypeError("Expected {}, got {}".format(Event, type(event)))
+
+        return( self.dtype() )
 
     def __add__(self, other):
         """
         Here, we combine two weighters into one super-weighter
+        This returns another Wighter object that evaluates the sum of the parent weighters' calculated weights 
         """
         if not isinstance(other, Weighter):
             raise TypeError("Expected {}, got {}".format(Weighter, type(other)))
+
+        # create default event 
+        ev = Event()
+        dtype = type(other(ev) + self(ev))
         
-        
-class MetaWeighter(Weighter):
-    def __init__(self, primary, secondary):
-        if not isinstance(primary, Weighter):
-            raise TypeError("Primary must be {}, got {}".format(Weighter, type(primary)))
-        if not isinstance(secondary, Weighter):
-            raise TypeError("Secondary must be {}, got {}".format(Weighter, type(primary)))
+        # make a little meta weighter object. It does weighting! 
+        class metaWeighter(Weighter):
+            def __init__(self_meta, dtype):
+                Weighter.__init__(self_meta,dtype)
+            def __call__(self_meta,event):
+                return(self(event)+other(event))
 
-        # if these can be added, this should be valid
-        self.dtype = type( primary.dtype() + secondary.dtype() )
-        Weighter.__init__(self, self.dtype)
+        return(metaWeighter(dtype))
 
-        self.primary = primary
-        self.secondary = secondary
+    def __mul__(self, other):
+        """
+        Define what happens when we multiply weighters together 
 
-    def __call__(self, event):
-        return( self.primary(event) + self.secondary(event) )
+        This produces a meta-Weighter using two other weighters. This weighter weights a given event with the parent weighters, then multiplies the weights together and returns the product 
+        """
+        if not isinstance(other, Weighter):
+            raise TypeError("Expected {}, got {}".format(Weighter, type(other)))
+
+        ev = Event()
+        dtype = type(other(ev)*self(ev))
+
+        class metaWeighter(Weighter):
+            def __init__(self_meta, dtype):
+                Weighter.__init__(self_meta, dtype)
+            def __call__(self_meta, event):
+                return(self(event)*other(event))
+
+        return(metaWeighter(dtype))
+    
+    def __div__(self, other):
+        """
+        Exactly the same as the multiplication, but now it's dividing 
+        """
+        if not isinstance(other, Weighter):
+            raise TypeError("Expected {}, got {}".format(Weighter, type(other)))
+
+        ev = Event()
+        dtype = type(other(ev)/self(ev))
+
+        class metaWeighter(Weighter):
+            def __init__(self_meta, dtype):
+                Weighter.__init__(self_meta, dtype)
+            def __call__(self_meta, event):
+                return(self(event)/other(event))
+
+        return(metaWeighter(dtype))
+
+
