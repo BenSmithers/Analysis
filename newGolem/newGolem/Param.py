@@ -8,7 +8,7 @@ class Param:
     """
     def __init__(self, **kwargs):
         """
-        This accepts any number of arguments in any order. Right now it only accepts 
+        This accepts any number of arguments in any order. Right now it only works with 
             name     -   a string representing the name of this parameter 
             center   -   a prior representing the center of the distribution
             width
@@ -16,7 +16,7 @@ class Param:
             fit
         """
 
-        # Priors
+        # Defaults 
         self.name   = ""
         self.center = 0.0 
         self.width  = 1.0

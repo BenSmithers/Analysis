@@ -1,6 +1,9 @@
 from Event import Event 
 
 class Weighter:
+    """
+    A Default type from which all the weighters will be made. 
+    """
     def __init__(self, dtype=float):
         if not isinstance(dtype, type):
             raise TypeError("Arg 'dtype' must be {}, got {}".format(type, type(dtype))) # weird...
@@ -79,4 +82,33 @@ class Weighter:
 
         return(metaWeighter(dtype))
 
+
+class powerLawTiltWeighter(Weighter):
+    def __init__(self, medianEnergy, deltaIndex):
+        Weighter.__init__(self, type(deltaIndex))
+
+        self.medianEnergy = medianEnergy
+        self.deltaIndex = deltaIndex
+
+    def __call__(self, event):
+        Weighter.__call__(self, event)
+
+        return( pow( event.primaryEnergy/self.medianEnergy, -1*self.deltaIndex) )
+
+class WeighterMaker:
+    """
+    This object can take a set of parameters and create a Meta-MetaWeighter that weights events according to that set of parameters 
+    """
+    def __init__(self):
+        pass
+
+
+    def __call__(self, params): 
+        astroNorm = 1e-18
+
+        conventionalComponent   = powerLawTiltWeighter(1e5, -2)
+        promptComponent         = powerLawTiltWeighter(1e5, -2)
+        astroComponent          = astroNorm*powerLawTiltWeighter(1e5, -2)
+
+        return( concentionalComponent + promptComponent + astroComponent )
 
