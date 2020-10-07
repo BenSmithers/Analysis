@@ -12,6 +12,7 @@ data = "/home/benito/software/data/depo_reco.png"
 # it's like, ( red, green, blue, alpha), so let's grab the reds
 img = mpimg.imread(data)[:,:,0]
 
+
 shape = img.shape
 
 total_data_bins_x = 98 #14 per generation X 7 generations
@@ -63,7 +64,7 @@ def y_convert(y_bin):
     max_data = 10**7
     y_bins = shape[0]
 
-    value = 10**( (7./y_bins)*y_bin )
+    value = 10**( (7./y_bins)*y_bin)
 
     return(value)
 
@@ -88,16 +89,17 @@ for x in xs:
         plot_x = x_bin_to_bin(x)
         plot_y = y_bin_to_bin(y)
 
-        # the little inversion happens because, graphically, the origin is placed on the top-left
-        # so 0 in the y axis is actually at the top! 
-        # this is different than the way we do things though. We're civilized 
-        data[x][y] = color_convert( img[shape[0]-plot_y-1][plot_x] )
+        data[x][y] = color_convert( img[plot_y][plot_x] )
         
+        
+
 
 #plt.contour(x_convert(xs), y_convert(ys), data)
 x_vals = [x_convert(x_bin_to_bin(x)) for x in xs]
-y_vals = [y_convert(y_bin_to_bin(y)) for y in ys]
-plt.pcolormesh(x_vals, y_vals, np.log10(data), cmap='gist_gray')
+y_vals = [y_convert(y_bin_to_bin(y)) for y in ys][::-1]
+#data = data[:,::-1]
+data=np.transpose(data)
+plt.pcolormesh(x_vals,y_vals, np.log10(data), cmap='gist_gray')
 plt.xscale('log')
 plt.yscale('log')
 #plt.imshow(data,interpolation='none', origin='lower', cmap='gist_gray')
