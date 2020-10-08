@@ -32,6 +32,89 @@ def get_index( key ):
     variety_index = neuts.index(variety) # 0 or 1
     return( 2 + int( flav_index + len(flavors)*variety_index) )
 
+def bad_get_loc(value, edges):
+    # fuck the error checking 
+    if value<edges[0] or value>edges[-1]:
+        return None
+    else:
+        scan = 0
+        while not (value>=edges[scan] and value<=edges[scan+1]): # remember, the edges are sorted - so this should happen
+            scan += 1
+            if scan==len(edges)-1:
+                raise Exception("Something bad happened with logic")
+        return(scan)
+
+
+def get_loc(x, domain):
+    """
+    Returns the indices of the entries in domain that border 'x' 
+
+    Raises exception if x is outside the range of domain 
+    """
+    if not isinstance(domain, (tuple,list,np.ndarray)):
+        raise TypeError("'domain' has unrecognized type {}, try {}".format(type(domain), list))
+    if not isinstance(x, (float,int)):
+        raise TypeError("'x' should be number-like, not {}".format(type(x)))
+    
+    if x<domain[0] or x>domain[-1]:
+        raise ValueError("x={} and is outside the domain: ({}, {})".format(x, domain[0], domain[-1]))
+
+    # I think this is a binary search
+    min_abs = 0
+    max_abs = len(domain)-1
+
+    lower_bin = int(abs(max_abs-min_abs)/2)
+    upper_bin = lower_bin+1
+    
+
+    while not (domain[lower_bin]<=x and domain[upper_bin]>=x):
+        if abs(max_abs-min_abs)<=1:
+            raise Exception("Uh Oh")
+
+        if x<domain[lower_bin]:
+            max_abs = lower_bin
+        if x>domain[upper_bin]:
+            min_abs = upper_bin
+
+        # now choose a new middle point for the upper and lower things
+        lower_bin = min_abs + int(abs(max_abs-min_abs)/2)
+        upper_bin = lower_bin + 1
+
+    return(lower_bin, upper_bin)
+
+
+def get_closest(x, domain, mapped):
+    """
+    We imagine some function maps from "domain" to "mapped"
+
+    We have several points evaluated for this function
+        domain - list-like of floats. 
+        mapped - list-like of floats. Entries in domain, evaluated by the function
+
+    The user provides a value "x," and then we interpolate the mapped value on either side of 'x' to approximate the mapped value of 'x' 
+    """
+    if not isinstance(domain, (tuple,list,np.ndarray)):
+        raise TypeError("'domain' has unrecognized type {}, try {}".format(type(domain), list))
+    if not isinstance(mapped, (tuple,list,np.ndarray)):
+        raise TypeError("'mapped' has unrecognized type {}, try {}".format(type(mapped), list))
+    if not isinstance(x, (float,int)):
+        raise TypeError("'x' should be number-like, not {}".format(type(x)))
+
+    if len(domain)!=len(mapped):
+        raise ValueError("'len' and 'mapped' should have same length, got len(domain)={}, len(mapped)={}".format(len(domain), len(mapped)))
+    
+    lower_bin, upper_bin = get_loc(x, domain)
+    
+    # linear interp time
+    x1 = domain[lower_bin]
+    x2 = domain[upper_bin]
+    y1 = mapped[lower_bin]
+    y2 = mapped[upper_bin]
+
+    slope = (y2-y1)/(x2-x1)
+
+    value = (x*slope + y2 -x2*slope)
+
 def bilinear_interp(p0, p1, p2, q11, q12, q21, q22):
     """
     Performs a bilinear interpolation on a 2D surface
@@ -213,17 +296,8 @@ class Data:
             if (angle > self._angles[-1] and self.ang_grow) or (angle < self._angles[-1] and not self.growing):
                 return(0.)
         
-        # should execute in O(N) time 
-        upper_boundary = 1
-        while energy>(self._energies[upper_boundary]):
-            upper_boundary += 1
-        lower_boundary = upper_boundary - 1
-
-        if not integrate:
-            ang_upper = 1
-            while angle>(self._angles[ang_upper]):
-                ang_upper+=1
-            ang_lower = ang_upper -1
+        lower_boundary, upper_boundary = get_loc(energy, self._energies)
+        ang_lower, ang_upper = get_loc(angle, self._angles)
         
         # sanity check... 
         # essentially makes sure that the energies are monotonically increasing 
@@ -321,7 +395,7 @@ class bhist:
             else:
                 amount = amt
 
-            bin_loc = tuple([self._get_loc( args[i], self._edges[i]) for i in range(len(args))]) # get the bin for each dimension
+            bin_loc = tuple([get_loc( args[i], self._edges[i])[0] for i in range(len(args))]) # get the bin for each dimension
 
             # Verifies that nothing in the list is None-type
             if all([x is not None for x in bin_loc]):
@@ -335,21 +409,7 @@ class bhist:
                     sys.exit()
                 return tuple(bin_loc)
         self.register = register
-
-    def _get_loc(self, value, edges):
-        """
-        Private function used by the register function. Takes a value and bin edges, both along some axis, and it returns which bin the value is in. (or None if it's out-of-bounds)
-        """
-        if value<edges[0] or value>edges[-1]:
-            return
-        else:
-            scan = 0
-            while not (value>=edges[scan] and value<=edges[scan+1]): # remember, the edges are sorted - so this should happen
-                scan += 1
-                if scan==len(edges)-1:
-                    raise Exception("Something bad happened with logic")
-            return(scan)
-
+ 
     # some access properties. Note these aren't function calls. They are accessed like "object.centers" 
     @property
     def centers(self):

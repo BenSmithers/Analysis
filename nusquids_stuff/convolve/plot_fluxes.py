@@ -104,7 +104,7 @@ import nuSQUIDSpy as nsq
 # specialty-made utility functions
 from utils import get_flavor, get_neut, get_curr, get_exp_std, get_width, get_nearest_entry_to
 from utils import bhist
-from utils import Data, get_index
+from utils import Data, get_index, get_loc
 
 from tau_funcs import TauData
 
@@ -128,15 +128,18 @@ if debug:
     taus = np.zeros(binny)
     muon = np.zeros(binny)
     ele = np.zeros(binny)
-    
+
+    angle_bin = 0
+    print("Angle: {}".format(data.angles[angle_bin]))
+
     for key in data.fluxes:
         flav=str(key).split('_')[0]
         if 'Tau'==flav:
-            taus+=[data.fluxes[key][i][-1] for i in range(len(data.fluxes[key]))]
+            taus+=[data.fluxes[key][i][angle_bin] for i in range(len(data.fluxes[key]))]
         elif "E"==flav:
-            ele+=[data.fluxes[key][i][-1] for i in range(len(data.fluxes[key]))]
+            ele+=[data.fluxes[key][i][angle_bin] for i in range(len(data.fluxes[key]))]
         elif "Mu"==flav:
-            muon+=[data.fluxes[key][i][-1] for i in range(len(data.fluxes[key]))]
+            muon+=[data.fluxes[key][i][angle_bin] for i in range(len(data.fluxes[key]))]
         else:
             raise Exception("You might have done steriles? {} is unrecognized".format(flav))
 
@@ -234,19 +237,16 @@ def _load_data():
         # figure out which slice to return
         # [:,:,N] would return the N'th angle bin
         if glob_angle<min(angle_edges) or glob_angle>max(angle_edges):
-            for keys in nuflux.keys():
+            for key in nuflux.keys():
                 nuflux[key] = nuflux[key][:,:,0]*0.
         else:
-            scan = 0
-            while not (glob_angle>=angle_edges[scan] and glob_angle<=angle_edges[scan+1]):
-                scan +=1 
-                if scan==len(angle_edges)-1:
-                    raise Exception("Seems like an invalid angle... or bad logic")
-            print("Grabbed angle bin {}".format(scan))
-            width = abs( np.arccos(angle_edges[scan+1]) - np.arccos(angle_edges[scan]))
+            lower, upper = get_loc(glob_angle, angle_edges)
+
+            print("Grabbed angle bin {}".format(lower))
+            width = abs( np.arccos(angle_edges[upper]) - np.arccos(angle_edges[lower]))
 
             for key in nuflux.keys():
-                nuflux[key] = nuflux[key][:,:,scan]*width
+                nuflux[key] = nuflux[key][:,:,lower]*width
                 
 
     return( all_data["parent_energies"], all_data["child_energies"], \
@@ -382,13 +382,9 @@ def generate_singly_diff_fluxes(n_bins,debug=False):
             for key in nuflux.keys():
                 nuflux[key] = nuflux[key][:,:,0]*0.
         else:
-            scan = 0
-            while not (glob_angle>=angle_edges[scan] and glob_angle<=angle_edges[scan+1]):
-                scan +=1 
-                if scan==len(angle_edges)-1:
-                    raise Exception("Seems like an invalid angle... or bad logic")
+            lower, upper = get_loc(glob_angle, angle_edges)
             for key in nuflux.keys():
-                nuflux[key] = nuflux[key][:,:,scan]
+                nuflux[key] = nuflux[key][:,:,lower]
 
     return(event_edges,cascade_edges, nuflux, angle_edges)
 
@@ -432,22 +428,18 @@ def build_contours(obs_energy, obs_angle):
         event, cascade, nuflux, angle_edges  = generate_singly_diff_fluxes(n_bins)
 
     # need to figure out which bin to use! 
-    scan = 0
-    if obs_energy<min(cascade) or obs_energy>max(cascade):
+    if obs_energy<cascade[0] or obs_energy>cascade[-1]:
         raise ValueError("{:.2f} GeV outside energy range: {:.2f} GeV to {:.2f} GeV".format(event, min(cascade), max(cascade)))
 
-    while not (obs_energy>=cascade[scan] and obs_energy<=cascade[scan+1]):
-        scan += 1
-        if scan==(len(cascade)-1):
-            raise Exception("Logic error...")
-    
-    
+
+    lower, upper = get_loc(obs_energy, cascade)
+       
     event_energies = np.array(bhist([event]).centers)
     angles = [abs(np.arccos(angle_edges[i+1]) - np.arccos(angle_edges[i])) for i in range(len(angle_edges))]
     cascade_widths = np.array(bhist([cascade]).widths)
 
     # so now this is /GeV/rad  (per the rest of the stuff)
-    flux = nuflux[:,scan,:]*cascade_widths[scan]
+    flux = nuflux[:,lower,:]*cascade_widths[lower]
 
 if mode==8 or do_all:
     if load_stored and os.path.exists(savefile):
