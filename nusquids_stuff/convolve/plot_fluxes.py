@@ -152,7 +152,7 @@ if debug:
     plt.ylabel("Flux [GeV sec cm$^{2}$ sr]$^{-1}$",size=14)
     plt.xscale('log')
     plt.yscale('log')
-    plt.savefig('raw fluxes.png', dpi=400)
+    plt.savefig('raw_fluxes_{:.2f}.png'.format(glob_angle), dpi=400)
     print("saved raw fluxes")
     plt.close()
 
@@ -214,7 +214,7 @@ if mode==0 or mode==1:
     plt.ylabel(r"Probability [GeV$^{-1}$]")
     plt.legend()
     print("saving 'wow.png'")
-    plt.savefig("wow.png",dpi=400)
+    plt.savefig("wow_{:.2f}.png".format(glob_angle),dpi=400)
 
 savefile = ".analysis_level.dat"
 def _load_data():
@@ -467,7 +467,7 @@ if mode==8 or do_all:
     cbar = plt.colorbar(cf,ticks=ticker.LogLocator())
     cbar.set_label(r"$dN/(dE_{f}dE_{i})$ [s$^{-1}$GeV$^{-2}$]")
     print("saving from_muon.png")
-    plt.savefig('from_muon.png', dpi=400)
+    plt.savefig('from_muon_{:.2f}.png'.format(glob_angle), dpi=400)
     plt.clf()
     cf = plt.contourf(event_energies/const.GeV, cascade_energies/const.GeV, from_not,cmap=cm.coolwarm, locator=ticker.LogLocator(), levels=levels)
     cbar = plt.colorbar(cf,ticks=ticker.LogLocator())
@@ -477,7 +477,7 @@ if mode==8 or do_all:
     plt.yscale('log')
     plt.xlabel('Parent Energy [GeV]', size=14)
     plt.ylabel('Cascade Energy [GeV]', size=14)
-    plt.savefig('from_not.png', dpi=400)
+    plt.savefig('from_not_{:.2f}.png'.format(glob_angle), dpi=400)
     print("Saving from_not.png")
 
 
@@ -516,7 +516,7 @@ if mode==2 or mode==4 or do_all:
         cbar = plt.colorbar(cf,ticks=ticker.LogLocator())
         cbar.set_label(r"$dN/(dE_{f}dE_{i})$ [s$^{-1}$GeV$^{-2}$]")
         print("saving muon_ones.png")
-        plt.savefig('muon_ones.png', dpi=400)
+        plt.savefig('muon_ones_{:.2f}.png'.format(glob_angle), dpi=400)
         plt.clf()
         cf = plt.contourf(parent_energies/const.GeV, these_energies/const.GeV, not_muon,cmap=cm.coolwarm, locator=ticker.LogLocator(), levels=levels)
         cbar = plt.colorbar(cf,ticks=ticker.LogLocator())
@@ -526,7 +526,7 @@ if mode==2 or mode==4 or do_all:
         plt.yscale('log')
         plt.xlabel('Parent Energy [GeV]', size=14)
         plt.ylabel('Cascade Energy [GeV]', size=14)
-        plt.savefig('not_muon.png', dpi=400)
+        plt.savefig('not_muon_{:.2f}.png'.format(glob_angle), dpi=400)
         print("Saving not_muon.png")
     elif mode==4 or do_all:
         levels = np.logspace(-2,2,11)
@@ -540,7 +540,7 @@ if mode==2 or mode==4 or do_all:
         cbar = plt.colorbar(cf,ticks=ticker.LogLocator())
         cbar.set_label("Muon Rate / Not Muon Rate")
         print("Saving ratio_plot.png")
-        plt.savefig('ratio_plot.png', dpi=400) 
+        plt.savefig('ratio_plot_{:.2f}.png'.format(glob_angle), dpi=400) 
 if mode==5 or do_all:
     """
     This mode prepares a plot showing the median energy of an event as a function of cascade energy.
@@ -609,7 +609,7 @@ if mode==5 or do_all:
     axes[0].set_ylabel("Median Event Energy [GeV]")
     axes[1].set_ylabel("Probability Muon")
     print("saving probable_energy.png")
-    plt.savefig("probable_energy.png", dpi=400)
+    plt.savefig("probable_energy_{:.2f}.png".format(glob_angle), dpi=400)
 
 if mode==6 or do_all:
     """
@@ -675,7 +675,7 @@ if mode==6 or do_all:
     axes[0].set_ylabel("Median Event Energy [GeV]")
     axes[1].set_ylabel("Probability Muon")
     print("saving predicted_energ_E.png")
-    plt.savefig("predicted_event_E.png", dpi=400)
+    plt.savefig("predicted_event_E_{:.2f}.png".format(glob_angle), dpi=400)
 
 
 if mode==9 or do_all:
@@ -768,6 +768,6 @@ if mode==9 or do_all:
     axes[1].set_xlabel("Cascade Energy [GeV]")
     axes[0].set_ylabel("Median Event Energy [GeV]")
     axes[1].set_ylabel("Probability Muon")
-    plt.savefig("all_three_flavor.png",dpi=400)
+    plt.savefig("all_three_flavor_{:.2f}.png".format(glob_angle),dpi=400)
     print("Saving all_three_flavor.png")
     

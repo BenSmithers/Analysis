@@ -112,8 +112,11 @@ def get_closest(x, domain, mapped):
     y2 = mapped[upper_bin]
 
     slope = (y2-y1)/(x2-x1)
-
     value = (x*slope + y2 -x2*slope)
+
+#    print("({}, {}) to ({}, {}) gave {}".format(x1,y1,x2,y2, value))
+    
+    return(value)
 
 def bilinear_interp(p0, p1, p2, q11, q12, q21, q22):
     """
