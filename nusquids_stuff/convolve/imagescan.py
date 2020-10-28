@@ -20,6 +20,7 @@ total_data_bins_y = 98
 
 print("Dims: {} by {}".format(shape[1], shape[0]))
 
+debug = False
         
 # data ranges from 0->1
 def color_convert(color):
@@ -33,7 +34,7 @@ def color_convert(color):
     min_color = 0.
     max_color = 1.
     
-    value = 10**( 3*color - 3 ) if log_scale else 0.
+    value = 10**( 3*(1.0-color) - 3 ) if log_scale else 0.
     return(value)
 
 def x_bin_to_bin(xdata):
@@ -76,31 +77,34 @@ def x_convert(x_bin):
 
     value = 10**((7./x_bins)*x_bin)
 
-    return(value)
-
-# these are the bin indices in terms of what we actually want 
-xs = np.arange(total_data_bins_x)
-ys = np.arange(total_data_bins_y)
-
-data = np.zeros(shape=(total_data_bins_x, total_data_bins_y))
-
-for x in xs:
-    for y in ys:
-        plot_x = x_bin_to_bin(x)
-        plot_y = y_bin_to_bin(y)
-
-        data[x][y] = color_convert( img[plot_y][plot_x] )
+    return(value)        
         
-        
+def get_data():
+    # these are the bin indices in terms of what we actually want 
+    xs = np.arange(total_data_bins_x)
+    ys = np.arange(total_data_bins_y)
+
+    data = np.zeros(shape=(total_data_bins_x, total_data_bins_y))
+
+    for x in xs:
+        for y in ys:
+            plot_x = x_bin_to_bin(x)
+            plot_y = y_bin_to_bin(y)
+
+            data[x][y] = color_convert( img[plot_y][plot_x] )
 
 
-#plt.contour(x_convert(xs), y_convert(ys), data)
-x_vals = [x_convert(x_bin_to_bin(x)) for x in xs]
-y_vals = [y_convert(y_bin_to_bin(y)) for y in ys][::-1]
-#data = data[:,::-1]
-data=np.transpose(data)
-plt.pcolormesh(x_vals,y_vals, np.log10(data), cmap='gist_gray')
-plt.xscale('log')
-plt.yscale('log')
-#plt.imshow(data,interpolation='none', origin='lower', cmap='gist_gray')
-plt.show()
+    #plt.contour(x_convert(xs), y_convert(ys), data)
+    x_vals = np.sort([x_convert(x_bin_to_bin(x)) for x in xs])
+    y_vals = np.sort([y_convert(y_bin_to_bin(y)) for y in ys][::-1])
+    data = data[:,::-1]
+    data=np.transpose(data)
+    if debug:
+        plt.pcolormesh(x_vals,y_vals, np.log10(data), cmap='gist_yarg')
+        plt.xscale('log')
+        plt.yscale('log')
+        plt.show()
+    return(x_vals, y_vals, data)
+if debug:
+    get_data()
+

@@ -17,7 +17,7 @@ else
         exit 1
     else
         echo "Building $1 into $2"
-        g++ -std=c++11 $1 -I./ -I$SROOT/include -I$GOLEMSPACE/include -L$SROOT/lib -L$SROOT/lib64 -L$GOLEMSPACE/local/lib -I$GOLEMSPACE/local/lib64 -lSQuIDS -lnuSQuIDS -lhdf5_hl -lhdf5 -lgsl -lgslcblas -o $2
+        g++ -std=c++11 -pthread $1 -I./ -I$SROOT/include -I/usr/lib/x86_64-linux-gnu/hdf5/serial/include -I$GOLEMSPACE/include -I$GOLEMSPACE/local/lib64 -L$SROOT/lib -L$SROOT/lib64 -L/usr/include/ -L/usr/lib/x86_64-linux-gnu/hdf5/serial/lib -L$GOLEMSPACE/local/lib  -lSQuIDS -lnuSQuIDS -lhdf5_hl -lhdf5 -lgsl -lgslcblas -o $2
     fi
 fi
 

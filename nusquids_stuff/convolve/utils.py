@@ -45,7 +45,7 @@ def bad_get_loc(value, edges):
         return(scan)
 
 
-def get_loc(x, domain):
+def get_loc(x, domain,closest=False):
     """
     Returns the indices of the entries in domain that border 'x' 
 
@@ -79,8 +79,11 @@ def get_loc(x, domain):
         # now choose a new middle point for the upper and lower things
         lower_bin = min_abs + int(abs(max_abs-min_abs)/2)
         upper_bin = lower_bin + 1
-
-    return(lower_bin, upper_bin)
+    
+    if closest:
+        return( lower_bin if abs(domain[lower_bin]-x)<abs(domain[upper_bin]-x) else upper_bin )
+    else:
+        return(lower_bin, upper_bin)
 
 
 def get_closest(x, domain, mapped):

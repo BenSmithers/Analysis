@@ -1,6 +1,8 @@
 from MCEq.core import config, MCEqRun
 import crflux.models as crf
 
+from bflux import HawkBPL
+
 import time
 import numpy as np
 import sys
@@ -22,7 +24,8 @@ def get_angle_flux( angle , mag=0):
 
     mceq = MCEqRun( 
         interaction_model = 'SIBYLL23C',
-        primary_model = (crf.HillasGaisser2012, 'H3a'),
+        primary_model = (HawkBPL, 0.),
+#        primary_model = (crf.HillasGaisser2012, 'H3a'),
         theta_deg = angle
         )
     mceq.solve()
