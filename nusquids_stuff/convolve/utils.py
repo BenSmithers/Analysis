@@ -128,7 +128,8 @@ def bilinear_interp(p0, p1, p2, q11, q12, q21, q22):
         p0  - point at which we want a value (len-2 tuple)
         p1  - coordinates bottom-left corner (1,1) of the square in the (x,y) domain (len-2 tuple)
         p2  - upper-right corner (2,2) of the square in the (X,y) domain (len-2 tuple)
-        qs  - values at the vertices of the square (See diagram), floats or ints
+        qs  - values at the vertices of the square (See diagram), any value supporting +/-/*
+                    right now: floats, ints, np.ndarrays 
 
 
         (1,2)----(2,2)
@@ -140,11 +141,15 @@ def bilinear_interp(p0, p1, p2, q11, q12, q21, q22):
     for each in [p0,p1,p2]:
         if not (isinstance(each, tuple) or isinstance(each, list) or isinstance(each, np.ndarray)):
             # I /would/ like to print out the bad value, but it might not be castable to a str?
+            try:
+                print("Found this: {}".format(each))
+            except ValueError:
+                pass
             raise TypeError("Expected {} for one of the points, got {}".format(tuple, type(each)))
         if len(each)!=2:
             raise ValueError("Points should be length {}, not {}!".format(2, len(each)))
     for val in [q11, q12, q21, q22]:
-        if not (isinstance(val, float) or isinstance(val, int)):
+        if not isinstance(val, (float, int, np.ndarray)):
             raise TypeError("Expected {} for a value, got {}".format(float, type(val)))
     
     # check this out for the math
