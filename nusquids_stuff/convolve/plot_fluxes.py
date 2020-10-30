@@ -75,12 +75,13 @@ else:
     recognized_modes = [0,1,2,3,4,5,6,7,-1,8,9]
     if mode not in recognized_modes: 
         raise ValueError("Unrecognized Mode: {}".format(mode))
-    if mode in [-1,0,1,2,3,7]:
+    if mode in [-1,1,2,3,7]:
         raise DeprecationWarning("Mode {} is deprecated".format(mode))
 
 print("Configuration...")
 print("    In Mode {}".format(mode))
 print("    Will Load Data" if load_stored else "    Will Generate Data")
+print("    Using {} bins".format(n_bins))
 
 # data analysis
 import numpy as np
@@ -110,7 +111,7 @@ from utils import Data, get_index, get_loc
 from tau_funcs import TauData
 
 # reconstruction data
-from datareco import DataReco
+from deporeco import DataReco
 
 const = nsq.Const()
 # colormap thing
@@ -161,7 +162,7 @@ if debug:
     plt.close()
 
 
-if mode==0 or mode==1:
+if mode==1:
     """
     This was used to make plots showing the probability density of event energy using a fixed cascade energy.
 
@@ -256,14 +257,15 @@ def _load_data():
     return( all_data["parent_energies"], all_data["child_energies"], \
                 nuflux, angle_edges )
     
-def _save_data(parent_energies, child_energies, nuflux, angle_edges):
+def _save_data(e_reco, e_true, a_reco, a_true, flux):
     """
     Saves the generated data for use later. 
     """
-    all_data = {"parent_energies": parent_energies, 
-                    "child_energies": child_energies, 
-                    "nuflux":nuflux,
-                    "angle_edges":angle_edges}
+    all_data = {"e_reco": e_reco,
+                "e_true": e_true,
+                "a_reco": a_reco,
+                "a_true": a_true,
+                "flux": flux}
     f = open(savefile,'wb')
     pickle.dump( all_data, f, -1)
     f.close()   
@@ -290,7 +292,6 @@ def do_for_key(event_edges,cascade_edges, key, angles=None):
 
     flav = key.split("_")[0]
     curr = key.split("_")[2]
-
 
     if angles is None:
         ang_list = [None]
@@ -320,10 +321,14 @@ def do_for_key(event_edges,cascade_edges, key, angles=None):
 
                 amount =data.get_flux(deposited_energy,key, angle=angle)
                 amount *= get_diff_xs(deposited_energy, get_flavor(key), get_neut(key), get_curr(key))
-                if angle is None:
-                    flux.register( amount, cascade_energies[cas_bin], deposited_energy) # add it in! 
-                else: 
-                    flux.register( amount, cascade_energies[cas_bin], deposited_energy, angle)
+                try:
+                    if angle is None:
+                        flux.register( amount, cascade_energies[cas_bin], deposited_energy) # add it in! 
+                    else: 
+                        flux.register( amount, cascade_energies[cas_bin], deposited_energy, angle)
+                except ValueError:
+                    if flav.lower()!='tau':
+                        raise Exception("It wasn't tau. Something's wrong")
 
         else:
             # in this case, knowing the cascade doesn't tell us anything about the event energy. 
@@ -338,7 +343,7 @@ def do_for_key(event_edges,cascade_edges, key, angles=None):
                     if lepton_energy > max(cascade_energies):
                         continue
 
-                    amount =data.get_flux(event_energies[evt_bin],key, angle)
+                    amount =data.get_flux(event_energies[evt_bin],key, angle=angle)
                     amount *= get_diff_xs(event_energies[evt_bin], get_flavor(key), get_neut(key), get_curr(key), lepton_energy,0.0)*cascade_widths[cas_bin]
                     if angle is None:
                         flux.register(amount, cascade_energies[cas_bin], event_energies[evt_bin])
@@ -347,12 +352,7 @@ def do_for_key(event_edges,cascade_edges, key, angles=None):
     
     # build a new bhist in reconstruction space (Still with event energy too)
     # then scan through deposited-true angle space
-    # and use the PDFS to smear the true values into reconstructed values, depositing them into the reconstruction bhist 
-    if angles is None:
-        reco_flux = bhist((reco_edges, event_edges))
-    else:
-        reco_flux = bhist((reco_edges, event_edges, angles))
-    
+    # and use the PDFS to smear the true values into reconstructed values, depositing them into the reconstruction bhist  
 
     return(flux.fill)
 
@@ -388,9 +388,8 @@ def generate_singly_diff_fluxes(n_bins,debug=False):
         nuflux[key] = do_for_key(event_edges,cascade_edges,key, (angle_edges if sep_angles else None))
 
     # if global variable "angle" isn't none, then we can separate out just a single angle
-    _save_data( event_edges, cascade_edges, nuflux, angle_edges)
     
-    if glob_angle is not None:
+    if False: # glob_angle is not None:
         # figure out which slice to return
         # [:,:,N] would return the N'th angle bin
         if glob_angle<min(angle_edges) or glob_angle>max(angle_edges):
@@ -413,10 +412,10 @@ def incorporate_recon(event_edges, cascade_edges, nuflux, angle_edges):
 
     cascade_centers = bhist([cascade_edges]).centers
     true_e_centers = bhist([event_edges]).centers
-    true_ang_center = bhist([angle_edges]).centers
+    true_ang_centers = bhist([angle_edges]).centers
 
     r_energy = bhist([ np.logspace(np.log10(e_min), np.log10(e_max), len(cascade_edges)) ])
-    r_angle  = bhist([ angle_edges = np.linspace( z_min, z_max, len(angle_edges))])
+    r_angle  = bhist([ np.linspace( z_min, z_max, len(angle_edges))])
 
     r_energy_centers = r_energy.centers
     r_energy_widths = r_energy.widths
@@ -424,24 +423,25 @@ def incorporate_recon(event_edges, cascade_edges, nuflux, angle_edges):
     r_angle_widths = r_angle.widths
 
     #build the data object
-    dataobj = DataReco(r_enery.edges, r_angle.edges, cascade_edges, angle_edges)
+    dataobj = DataReco(r_energy.edges, r_angle.edges, cascade_edges, angle_edges)
 
     # may god have mercy on our souls 
     recoflux = {}
     for key in nuflux.keys():
+        print("Reconstructing {} Flux".format(key))
         # energy x, angle y
-        recoflux = np.zeros((len(r_energy_centers),len(true_e_centers), len(r_angle_centers),len(true_ang_centers)))
+        recoflux[key] = np.zeros((len(r_energy_centers),len(true_e_centers), len(r_angle_centers),len(true_ang_centers)))
         for i_e_reco in range(len(r_energy_centers)):
-            for i_e_true in range(len(true_e_centers)):
-                for i_e_depo in range(len(cascade_centers)):
-                    for i_a_true in range(len(true_ang_centers)):
-                        for i_a_reco in range(len(r_angle_centers)):
-                            depo_odds = dataobj.get_energy_reco_odds(i_e_depo, i_e_reco) #per 
-                            ang_odds = dataobj.get_czenith_reco_odds(i_a_true, i_a_reco) #per sr
-                            amt = nuflux[i_e_true][i_e_depo][i_a_true]*depo_odds*ang_odds #per angle per gev depo
+            for i_e_depo in range(len(cascade_centers)):
+                depo_odds = dataobj.get_energy_reco_odds(i_e_depo, i_e_reco) #per 
+                for i_a_true in range(len(true_ang_centers)):
+                    for i_a_reco in range(len(r_angle_centers)):
+                        ang_odds = dataobj.get_czenith_reco_odds(i_a_true, i_a_reco) #per sr
+                        for i_e_true in range(len(true_e_centers)):
+                            amt = nuflux[key][i_e_true][i_e_depo][i_a_true]*depo_odds*ang_odds #per angle per gev depo
+                            recoflux[key][i_e_reco][i_e_true][i_a_reco][i_a_true] += amt
 
-                            recoflux[i_e_reco][i_e_true][i_a_reco][i_a_true] += amt
-
+    _save_data(r_energy.edges, event_edges, angle_edges,angle_edges, recoflux)
     
 
 
@@ -467,8 +467,9 @@ def sep_by_flavor(nuflux):
             from_not+=nuflux[key]
     return(from_muons, from_not)
 
-if do_all and not load_stored:
-    generate_singly_diff_fluxes(n_bins)
+if (do_all and not load_stored) or mode==0:
+    a,b,c,d = generate_singly_diff_fluxes(n_bins)
+    incorporate_recon(a,b,c,d)
 
 def build_contours(obs_energy, obs_angle):
     """
