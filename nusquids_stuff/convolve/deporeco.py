@@ -29,11 +29,13 @@ rtwolog = sqrt(2*log(2))
 
 class DataReco:
     def __init__(self, reco_energy_edges, reco_czenith_edges, depo_energy_edges, true_czenith_edges):
+        """
+        Expects the energies in eV, but works in GeV
+        """
 
 
-
-        self._ereco = bhist([reco_energy_edges])
-        self._edepo = bhist([depo_energy_edges])
+        self._ereco = bhist([np.array(reco_energy_edges)*(1e-9)])
+        self._edepo = bhist([np.array(depo_energy_edges)*(1e-9)])
         self._zreco = bhist([reco_czenith_edges])
         self._ztrue = bhist([true_czenith_edges])
 
@@ -58,7 +60,7 @@ class DataReco:
         return(self._energy_odds_array[i_depo][i_reco]*self.reco_energy_widths[i_reco])
 
     def get_czenith_reco_odds(self, i_true, i_reco):
-        return(self._czenith_odds_array[i_true][i_reco]*self.reco_czenith_widths[i_reco])
+        return(self._angle_odds_array[i_true][i_reco]*self.reco_czenith_widths[i_reco])
    
     @property
     def reco_energy_centers(self):
