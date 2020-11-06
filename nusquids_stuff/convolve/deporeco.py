@@ -1,4 +1,4 @@
-from math import exp, sqrt, pi, log
+from math import exp, sqrt, pi, log, acos
 import numpy as np
 import os
 from utils import bhist, get_loc
@@ -88,17 +88,19 @@ class DataReco:
     def true_czenith_widths(self):
         return(self._ztrue.widths)
 
+deg = np.pi/180.
+mu = deg*6.1983e-1
+fwhm = deg*(13.223 + 11.983)
+sigma =  fwhm/rtwolog
+
 def get_odds_angle(true, reconstructed):
     """
     The returns the probability density of an RA/zenith angle of 'true' being reconstructed as 'reconstructed'
 
     It uses the 7-year cascade analysis' evaluation of angular reconstruction from Monopod 
     """
-    x = reconstructed - true
-    mu = 6.1983e-1
-    fwhm = 13.223 + 11.983
-    sigma =  fwhm/rtwolog
-
+    x = acos(reconstructed) - acos(true)
+    
     value = (rtwo/sigma)*exp(-1*((x-mu)**2)/(2*sigma*sigma))
     return(value)
 
@@ -135,8 +137,8 @@ if doplot:
     import matplotlib.pyplot as plt
     from matplotlib import ticker
 
-    depos_e = np.logspace(0.1, 6.9, 100)
-    recos_e = np.logspace(0.1, 6.9, 101)
+    depos_e = np.logspace(0.1, 6.9, 100)*(1e9)
+    recos_e = np.logspace(0.1, 6.9, 101)*(1e9)
 
     ang = np.linspace(-1,1,100)
 
@@ -183,3 +185,16 @@ if doplot:
     
     figs.savefig("fig_deporeco.png",dpi=400)
     plt.show()
+
+    ang_odds = np.array([[dataobj.get_czenith_reco_odds(true,reco) for true in range(len(ang)-1)] for reco in range(len(ang)-1)])
+    ang_odds=np.log10(np.ma.masked_where(ang_odds<=1e-10,ang_odds))
+    
+    plt.figure(2)
+    me = plt.pcolormesh(ang,ang,ang_odds,cmap='gist_yarg')
+    plt.xlabel("True Zenith")
+    plt.ylabel("Recon Zenith")
+    cbar = plt.colorbar(me)
+    cbar.set_label("Prob Density")
+    plt.savefig("fig_angtruereco.png",dpi=400)
+    plt.show()
+

@@ -172,7 +172,7 @@ def bilinear_interp(p0, p1, p2, q11, q12, q21, q22):
     mat_mult_1 = [q11*(y2-y0) + q12*(y0-y1) , q21*(y2-y0) + q22*(y0-y1)]
     mat_mult_final = (x2-x0)*mat_mult_1[0] + (x0-x1)*mat_mult_1[1]
 
-    return( mat_mult_final/((x2-x1)*(y2-x1)) )
+    return( mat_mult_final/((x2-x1)*(y2-y1)) )
 
 class Data:
     """

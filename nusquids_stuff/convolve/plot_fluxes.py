@@ -413,10 +413,10 @@ def incorporate_recon(event_edges, cascade_edges, nuflux, angle_edges):
     cascade_centers = bhist([cascade_edges]).centers
     true_e_centers = bhist([event_edges]).centers
     true_ang_centers = bhist([angle_edges]).centers
-
+    
     r_energy = bhist([ np.logspace(np.log10(e_min), np.log10(e_max), len(cascade_edges)) ])
     r_angle  = bhist([ np.linspace( z_min, z_max, len(angle_edges))])
-
+    
     r_energy_centers = r_energy.centers
     r_energy_widths = r_energy.widths
     r_angle_centers = r_angle.centers
@@ -470,34 +470,6 @@ def sep_by_flavor(nuflux):
 if (do_all and not load_stored) or mode==0:
     a,b,c,d = generate_singly_diff_fluxes(n_bins)
     incorporate_recon(a,b,c,d)
-
-def build_contours(obs_energy, obs_angle):
-    """
-    Presuming we're given some observed angle and observed energy...
-
-    We first figure out which event bin we want 
-    """
-
-    glob_angle = None
-
-    if load_stored and os.path.exists(savefile):
-        event, cascade, nuflux, angle_edges  = _load_data()
-    else:
-        event, cascade, nuflux, angle_edges  = generate_singly_diff_fluxes(n_bins)
-
-    # need to figure out which bin to use! 
-    if obs_energy<cascade[0] or obs_energy>cascade[-1]:
-        raise ValueError("{:.2f} GeV outside energy range: {:.2f} GeV to {:.2f} GeV".format(event, min(cascade), max(cascade)))
-
-
-    lower, upper = get_loc(obs_energy, cascade)
-       
-    event_energies = np.array(bhist([event]).centers)
-    angles = [abs(np.arccos(angle_edges[i+1]) - np.arccos(angle_edges[i])) for i in range(len(angle_edges))]
-    cascade_widths = np.array(bhist([cascade]).widths)
-
-    # so now this is /GeV/rad  (per the rest of the stuff)
-    flux = nuflux[:,lower,:]*cascade_widths[lower]
 
 if mode==8 or do_all:
     if load_stored and os.path.exists(savefile):
