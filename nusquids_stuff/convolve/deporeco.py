@@ -2,7 +2,6 @@ from math import exp, sqrt, pi, log, acos
 import numpy as np
 import os
 from utils import bhist, get_loc
-from imagescan import get_data
 
 """
 This script is here to approximate the uncertainties in going from "energy deposited" to "energy reconstructed"
@@ -12,6 +11,7 @@ rtwo = 1./sqrt(2*pi)
 
 use_scan = False
 if use_scan:
+    from imagescan import get_data
     _data_depo, _data_reco, _data_prob = get_data()
 else:
     datafile = "reconstruction.txt"
@@ -44,8 +44,9 @@ class DataReco:
         self._energy_odds_array = np.array([[ get_odds_energy(deposited, reconstructed) for reconstructed in self.reco_energy_centers] for deposited in self.depo_energy_centers])
         self._angle_odds_array = np.array([[ get_odds_angle(true, reconstructed) for reconstructed in self.reco_czenith_centers] for true in self.true_czenith_centers]) 
 
-
+        # Avoid equating two floats. Look for a sufficiently small difference! 
         max_diff = 1e-12
+
         # normalize these things! 
         # so for each energy deposited... the sum of (PDF*width evaluated at each reco bin) should add up to 1. 
         for depo in range(len(self._energy_odds_array)):
@@ -134,6 +135,8 @@ def get_odds_energy(deposited, reconstructed):
 
 doplot = False
 if doplot:
+    import matplotlib
+    matplotlib.use('TkAgg')
     import matplotlib.pyplot as plt
     from matplotlib import ticker
 
