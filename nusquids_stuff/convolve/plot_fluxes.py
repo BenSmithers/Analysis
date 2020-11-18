@@ -94,7 +94,7 @@ from warnings import warn
 #plotting imports
 import matplotlib
 # Need to use agg since Tk isn't on the cobalts??? 
-matplotlib.use('agg')
+matplotlib.use('TkAgg', force=True)
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from matplotlib import ticker #used for log-scale contourplots 
@@ -103,8 +103,8 @@ from cross_section_test import get_diff_xs
 import nuSQUIDSpy as nsq
 
 # specialty-made utility functions
-from utils import get_flavor, get_neut, get_curr, get_exp_std, get_width, get_nearest_entry_to
-from utils import bhist
+from nus_utils import get_flavor, get_neut, get_curr
+from utils import bhist, get_exp_std, get_width, get_nearest_entry_to
 from utils import Data, get_index, get_loc
 
 # tau stuff
@@ -365,7 +365,7 @@ def generate_singly_diff_fluxes(n_bins,debug=False):
         the dimensionality depends on whether or we are integrating over the zenith angles
     """
     e_min = 10*const.GeV
-    e_max = 100*const.TeV
+    e_max = 10*const.PeV
     extra = 2
     
     all_angles = data.angles
@@ -404,18 +404,28 @@ def generate_singly_diff_fluxes(n_bins,debug=False):
     return(event_edges,cascade_edges, nuflux, angle_edges)
 
 def incorporate_recon(event_edges, cascade_edges, nuflux, angle_edges):
+    """
+    This takes in the results from `generate_singly_diff_fluxes` and incorporates reconstruction uncertainties
+
+    Should take in a list or array of energies (true, deposited), in units of eV
+    And also take in a list of true cos(zenith) edges 
+    """
     e_min = min(cascade_edges)
     e_max = max(cascade_edges)
 
     z_min = min(angle_edges)
     z_max = max(angle_edges)
 
+    # we need to get all the centers for these bins with the given edges. 
+    # these will be associeed with each of the bins in nuflux 
+    
     cascade_centers = bhist([cascade_edges]).centers
     true_e_centers = bhist([event_edges]).centers
     true_ang_centers = bhist([angle_edges]).centers
-    
-    r_energy = bhist([ np.logspace(np.log10(e_min), np.log10(e_max), len(cascade_edges)) ])
-    r_angle  = bhist([ np.linspace( z_min, z_max, len(angle_edges))])
+   
+    # these are reconstruction objects 
+    r_energy = bhist([ np.logspace(np.log10(e_min), np.log10(e_max), int(len(cascade_edges)/2)) ])
+    r_angle  = bhist([ np.linspace( z_min, z_max, int(len(angle_edges)/2))])
     
     r_energy_centers = r_energy.centers
     r_energy_widths = r_energy.widths
@@ -423,6 +433,7 @@ def incorporate_recon(event_edges, cascade_edges, nuflux, angle_edges):
     r_angle_widths = r_angle.widths
 
     #build the data object
+    # this thing take in those edges and centers and correctly builds normalized probabilities for the given bins 
     dataobj = DataReco(r_energy.edges, r_angle.edges, cascade_edges, angle_edges)
 
     # may god have mercy on our souls 
@@ -430,7 +441,7 @@ def incorporate_recon(event_edges, cascade_edges, nuflux, angle_edges):
     for key in nuflux.keys():
         print("Reconstructing {} Flux".format(key))
         # energy x, angle y
-        recoflux[key] = np.zeros((len(r_energy_centers),len(true_e_centers), len(r_angle_centers),len(true_ang_centers)))
+        recoflux[key] = np.zeros(shape=(len(r_energy_centers),len(true_e_centers), len(r_angle_centers),len(true_ang_centers)))
         for i_e_reco in range(len(r_energy_centers)):
             for i_e_depo in range(len(cascade_centers)):
                 depo_odds = dataobj.get_energy_reco_odds(i_e_depo, i_e_reco) #per 
@@ -438,10 +449,10 @@ def incorporate_recon(event_edges, cascade_edges, nuflux, angle_edges):
                     for i_a_reco in range(len(r_angle_centers)):
                         ang_odds = dataobj.get_czenith_reco_odds(i_a_true, i_a_reco) #per sr
                         for i_e_true in range(len(true_e_centers)):
-                            amt = nuflux[key][i_e_true][i_e_depo][i_a_true]*depo_odds*ang_odds #per angle per gev depo
+                            amt = nuflux[key][i_e_depo][i_e_true][i_a_true]*depo_odds*ang_odds #per angle per gev depo
                             recoflux[key][i_e_reco][i_e_true][i_a_reco][i_a_true] += amt
 
-    _save_data(r_energy.edges, event_edges, angle_edges,angle_edges, recoflux)
+    _save_data(r_energy.edges, event_edges, r_angle.edges, angle_edges, recoflux)
     
 
 
@@ -800,4 +811,17 @@ if mode==9 or do_all:
     axes[1].set_ylabel("Probability Muon")
     plt.savefig("all_three_flavor_{:.2f}.png".format(glob_angle),dpi=400)
     print("Saving all_three_flavor.png")
+   
+
+if False: # __name__=="__main__":
+    
+    print("Doing it!")
+    event_edges,cascade_edges, nuflux, angle_edges = generate_singly_diff_fluxes(100)
+
+
+    grabone = list(nuflux.keys())[0]
+
+    plt.pcolormesh(np.log10(nuflux[grabone]))
+    plt.savefig("test.png",dpi=400)
+    plt.show()
     
