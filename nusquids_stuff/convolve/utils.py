@@ -1,5 +1,4 @@
-import nuSQUIDSpy as nsq
-from math import sqrt
+from math import sqrt, log10
 
 import os
 import numpy as np
@@ -12,11 +11,21 @@ This defines a few utility functions for my plotting script.
 I moved this over here so the main plotter wasn't too busy
 """
 
-const = nsq.Const()
-
 flavors = ['E', 'Mu', 'Tau']
 neuts = ['nu', 'nuBar']
 currents = ['NC', 'CC']
+
+def sci(number, precision=4):
+    """
+    Returns a string representing the number in scientific notation
+    """
+    if not isinstance(number, (int, float)):
+        raise TypeError("Expected {}, not {}".format(float, type(number)))
+    if not isinstance(precision,int):
+        raise TypeError("Precision must be {}, not {}".format(int, type(precision)))
+
+    power = int(log10(abs(number)))
+    return("{0:.{1}f}".format(number/(10**power), precision)+"e{}".format( power))
 
 def get_index( key ):
     '''
@@ -50,6 +59,8 @@ def get_loc(x, domain,closest=False):
     Returns the indices of the entries in domain that border 'x' 
 
     Raises exception if x is outside the range of domain 
+
+    Assumes 'domain' is sorted!! 
     """
     if not isinstance(domain, (tuple,list,np.ndarray)):
         raise TypeError("'domain' has unrecognized type {}, try {}".format(type(domain), list))
@@ -57,7 +68,7 @@ def get_loc(x, domain,closest=False):
         raise TypeError("'x' should be number-like, not {}".format(type(x)))
     
     if x<domain[0] or x>domain[-1]:
-        raise ValueError("x={} and is outside the domain: ({}, {})".format(x, domain[0], domain[-1]))
+        raise ValueError("x={} and is outside the domain: ({}, {})".format(sci(x), sci(domain[0]), sci(domain[-1])))
 
     # I think this is a binary search
     min_abs = 0
@@ -80,6 +91,7 @@ def get_loc(x, domain,closest=False):
         lower_bin = min_abs + int(abs(max_abs-min_abs)/2)
         upper_bin = lower_bin + 1
     
+    assert(x>=domain[lower_bin] and x<=domain[upper_bin])
     if closest:
         return( lower_bin if abs(domain[lower_bin]-x)<abs(domain[upper_bin]-x) else upper_bin )
     else:
@@ -192,6 +204,7 @@ class Data:
         data = np.loadtxt(os.path.join( os.path.dirname(__file__), 'atmosphere.txt'), dtype=float, comments='#',delimiter=' ')
         n_energies = 701
         n_angles = 100
+        GeV=1e9
         if not (len(data)==n_energies*n_angles):
             raise ValueError("Datafile length error? {}!={}".format(len(data), n_energies*n_angles))
 
@@ -203,13 +216,13 @@ class Data:
         # this was originally supposed to be agnostic to growing/shrinking energies/angles, but the code really assumes increasing.
         self._energies = [10**data[i][0] for i in range(n_energies)]
         self.growing = self._energies[1]>self._energies[0]  
-        en_width = get_width(self._energies)/const.GeV
+        en_width = get_width(self._energies)/GeV
         self._angles = [data[n_energies*i][1] for i in range(n_angles)]
         self._ang_width = get_width(np.arccos(self._angles))
         self.ang_grow = self._angles[1]>self._angles[0]
         print(min(self._energies))
         print(type(min(self._energies)))
-        print("Data spans {} GeV -> {} GeV".format(min(self._energies)/const.GeV, max(self._energies)/const.GeV))
+        print("Data spans {} GeV -> {} GeV".format(min(self._energies)/GeV, max(self._energies)/GeV))
         print("           {} rad -> {} rad in zenith".format(min(self._angles), max(self._angles)))
 
         print("The Energies are {} and the angles are {}".format("increasing" if self.growing else "decreasing", "increasing" if self.ang_grow else "decreasing"))
@@ -308,7 +321,8 @@ class Data:
                 return(0.)
         
         lower_boundary, upper_boundary = get_loc(energy, self._energies)
-        ang_lower, ang_upper = get_loc(angle, self._angles)
+        if not integrate:
+            ang_lower, ang_upper = get_loc(angle, self._angles)
         
         # sanity check... 
         # essentially makes sure that the energies are monotonically increasing 
@@ -605,56 +619,4 @@ def get_exp_std( widths, probs, values ):
     sigma = sqrt(var)
 
     return( median, sigma_plus, sigma_minus)
-
-# define a couple utility functions
-def get_flavor( key ):
-    '''
-    take a flux dictionary key and return the nusquids flavor type
-    
-    The dictionary key will be like "electorn_stuff_stuff"
-    '''
-    if not isinstance(key, str):
-        raise TypeError("Expected {}, got {}".format(str, type(key)))
-
-    part = key.split('_')[0].lower()
-    if part in ['e', 'eleectron']:
-        return( nsq.NeutrinoCrossSections_NeutrinoFlavor.electron )
-    elif part in ['mu', 'muon']:
-        return( nsq.NeutrinoCrossSections_NeutrinoFlavor.muon )
-    elif part in ['tau']:
-        return( nsq.NeutrinoCrossSections_NeutrinoFlavor.tau )
-    else:
-        raise ValueError("Not sure how to work with {}, extracted from {}".format(part, key))
-
-def get_neut( key ):
-    '''
-    Takes a flux dictionary key and returns the nusquids neutrino type 
-    (anti neutrino or vanilla neutrino)
-    '''
-    if not isinstance(key, str):
-        raise TypeError("Expected {}, got {}".format(str, type(key)))   
-    part = key.split('_')[1].lower()
-
-    if part in ['nu', 'matter','neutrino']:
-        return(nsq.NeutrinoCrossSections_NeutrinoType.neutrino)
-    elif part in ['nubar', 'antimatter', 'antineutrino']:
-        return(nsq.NeutrinoCrossSections_NeutrinoType.antineutrino)
-    else:
-        raise ValueError("Not sure how to work with {}, extracted from {}".format(part, key))
-
-def get_curr(key):
-    '''
-    Takes a flux dictionary key and returns the nusquids neutrino type 
-    '''
-    if not isinstance(key, str):
-        raise TypeError("Expected {}, got {}".format(str, type(key)))   
-    part = key.split('_')[2].lower()
-
-    if part in ['neutral', 'nc']:
-        return(nsq.NeutrinoCrossSections_Current.NC)
-    elif part in ['charged', 'cc']:
-        return(nsq.NeutrinoCrossSections_Current.CC)
-    else:
-        raise ValueError("Not sure how to work with {}, extracted from {}".format(part, key))
-
 
