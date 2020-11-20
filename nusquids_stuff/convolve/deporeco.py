@@ -36,7 +36,7 @@ class DataReco:
 
         self._ereco = bhist([np.array(reco_energy_edges)*(1e-9)])
         self._edepo = bhist([np.array(depo_energy_edges)*(1e-9)])
-        self._zreco = bhist([reco_czenith_edges])
+        self._zreco = bhist([reco_czenith_edges]) # these two are in cos(Zenith)
         self._ztrue = bhist([true_czenith_edges])
 
         # these are now filled with the values of the probability DENSITY functions for each angle/energy combo 
@@ -60,7 +60,7 @@ class DataReco:
     def get_energy_reco_odds(self, i_depo, i_reco ):
         return(self._energy_odds_array[i_depo][i_reco]*self.reco_energy_widths[i_reco])
 
-    def get_czenith_reco_odds(self, i_true, i_reco):
+    def get_czenith_reco_odds(self, i_true, i_reco, i_e_true):
         return(self._angle_odds_array[i_true][i_reco]*self.reco_czenith_widths[i_reco])
    
     @property

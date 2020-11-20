@@ -31,14 +31,9 @@ def slicer(source, index1, index2):
     """
     This function is used to get a 2D slice of the 4D array 'source'
     """
-    dest = np.zeros(shape=(len(source[index1]), len(source[index1][0][index2])))
-
-    for j in range(len(source[index1])):
-        for l in range(len(source[index1][j][index2])):
-            dest[j][l] = source[index1][j][index2][l]
-    
-    return(dest)
-    
+    dest = [[ source[index1][j][index2][l] for l in range(len(source[index1][j][index2]))] for j in range(len(source[index1]))]
+    return(np.array(dest))
+        
 def build_contours(obs_e, obs_angle):
     """
     Presuming we're given some observed angle and observed energy...
@@ -82,7 +77,7 @@ def build_contours(obs_e, obs_angle):
 
     # pcolormesh 
     
-    plt.pcolormesh( np.array(e_true_centers)/(1e9), a_true_centers, focus_prob)
+    plt.pcolormesh( np.array(e_true_centers)/(1e9), a_true_centers, np.transpose(focus_prob))
     plt.xlabel("True Energy [GeV]",size=14)
     plt.xscale('log')
     plt.ylabel("Cos Zenith", size=14)
@@ -90,4 +85,4 @@ def build_contours(obs_e, obs_angle):
     plt.savefig("contour.png",dpi=400)
     plt.show()
 
-build_contours(10000, -0.8)
+build_contours(100000, -0.5)
