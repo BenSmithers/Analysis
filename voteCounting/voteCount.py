@@ -1,5 +1,6 @@
 import numpy as np
 import sys
+import pandas as pd 
 
 class Vote:
     """
@@ -88,7 +89,7 @@ def build_category_dict(header, dmode=False):
     """
     cats = {}
     for entry in header:
-        if entry=='"Timestamp"':
+        if entry=='Timestamp' or entry=="Email Address":
             continue
         
         new_cat = extract_category(entry) # entry.split("[")[0]
@@ -113,6 +114,8 @@ def assign_votes( submission, header, cats):
     for column in range(len(submission)):
         if column==0:
             continue
+        if column==1:
+            continue
        
         
         key = extract_category(header[column]) 
@@ -135,22 +138,53 @@ def assign_votes( submission, header, cats):
     
     return(cats)    
 
-def load(filename="tb2020.csv"):
+def extract_vote_new(categories, vote_obj):
+    last_key = ""
+    wip_vote = []
+    print(vote_obj.keys())
+
+    for column in vote_obj.keys():
+        if column=="Timestamp" or column=="Email Address":
+            continue
+        key = extract_category(column)
+        if key!=last_key and last_key!="":
+            categories[last_key].append(Vote(wip_vote))
+            wip_vote = []
+        wip_vote.append(vote_obj[column])
+        last_key = key
+    categories[last_key].append(Vote(wip_vote))
+
+    return categories
+
+
+
+def load(filename="tb2023.xlsx"):
     """
     This function loads the file and prints out the winners 
     """
-    data = np.loadtxt(filename, dtype=str, delimiter=",")
-    header = data[0]
+
+   # data = np.loadtxt(filename, dtype=str, delimiter=",")
+    data = pd.read_excel(filename)
     
+    ##header = data[0]
+    header = data.keys()
+    
+
     # first we parse the data, building a dictionary with keys for each category - and whose values are lists of Vote objects 
     categories = build_category_dict(header)
-    skipped_header = False
-    for row in data:
-        if not skipped_header:
-            skipped_header = True
-            continue
-        categories = assign_votes( row, header, categories) 
-    print()
+    data = data.transpose()
+
+    if False:
+        skipped_header = False
+        for row in data:
+            if not skipped_header:
+                skipped_header = True
+                continue
+
+            categories = assign_votes( row, header, categories) 
+    
+    for index in data:
+        categories = extract_vote_new(categories, data[index])
 
     at_least_one_bad = False
 
